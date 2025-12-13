@@ -1,4 +1,4 @@
-# FreeDyn v1.0.0
+# FreeDyn
 
 **Multi-Body System (MBS) Simulation and Analysis Software**
 
@@ -17,7 +17,7 @@ FreeDyn is a powerful simulation software for modeling and analyzing Multi-Body 
 
 - [Getting Started](docs/GETTING_STARTED.md) - Installation and first steps
 - [Examples](examples/) - Code examples and tutorials
-- [Release Notes](#release-notes) - Version history
+- [Release Notes](#release-notes) - What's new
 
 ## Quick Start (Python)
 
@@ -68,8 +68,8 @@ More detail: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
 FreeDyn consists of several core components:
 
 - **freedyn.dll** - C-interface Dynamic Link Library (core solver)
-- **fdApi** - Python wrapper with convenience functions
-- **fdApi2** - Advanced functions (matrices, vectors)
+- **Python bindings** - High-level API (Model, ModelInfo, analysis functions)
+- **CLI tool** - Command-line interface (freedyn-run)
 - **GUI/CLI tools** - Pre- and post-processing
 
 ## Requirements
@@ -86,7 +86,7 @@ FreeDyn consists of several core components:
 
 ## License
 
-FreeDyn v1.0.0 is released under the GNU Lesser General Public License v3.
+FreeDyn is released under the GNU Lesser General Public License v3.
 
 See [LICENSE](LICENSE) for details.
 
@@ -96,14 +96,16 @@ See [LICENSE](LICENSE) for details.
 - **Documentation**: See [docs/](docs/) folder
 - **Examples**: See [examples/](examples/) folder
 
-## Version History
+## Release Notes
 
-### v1.0.0 (December 2025)
+**Latest Release**
 - Initial public release
-- Python bindings (fdApi, fdApi2)
+- Complete Python bindings refactoring
+- High-level API (Model, ModelInfo, analysis functions)
+- Command-line tool (freedyn-run)
 - Core MBS simulation capabilities
 - Matrix/vector extraction functionality
-- 3 example scripts
+- Comprehensive documentation
 
 ## Contributing
 
@@ -133,5 +135,4 @@ If you use FreeDyn in your research, please cite:
 ---
 
 **Repository**: https://github.com/freedyn-org/freedyn  
-**Release**: v1.0.0  
-**Date**: December 2025
+**Version**: See [_version.py](bindings/python/freedyn/_version.py) for current version
