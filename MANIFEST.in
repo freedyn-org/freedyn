@@ -1,0 +1,1 @@
+recursive-include bindings/python/freedyn/bin *.dll
