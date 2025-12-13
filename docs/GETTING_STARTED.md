@@ -1,4 +1,4 @@
-# Getting Started with FreeDyn v1.0.0
+# Getting Started with FreeDyn
 
 This guide covers installation, a first run, and common tasks with the current Python API.
 
