@@ -38,7 +38,6 @@ setup(
         "Operating System :: Microsoft :: Windows :: Windows 7",
         "Operating System :: Microsoft :: Windows :: Windows 10",
         "Operating System :: Microsoft :: Windows :: Windows 11",
-        "Environment :: Win32",
         "Topic :: Scientific/Engineering :: Physics",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
