@@ -15,13 +15,25 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 # Copy DLLs from top-level bin/x64_MD/ into the package so they are included
 # in wheels. Python must use the MD (dynamic CRT) variant.
+# Exclude GUI-only DLLs (wxWidgets, image libs) to keep wheel under PyPI 100 MB limit.
+_GUI_ONLY_DLLS = {
+    "wxbase32u_vc_x64_custom.dll",
+    "wxmsw32u_core_vc_x64_custom.dll",
+    "jpeg62.dll",
+    "libpng16.dll",
+    "liblzma.dll",
+    "pcre2-16.dll",
+    "tiff.dll",
+    "zlib1.dll",
+}
 _top_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "x64_MD")
 _pkg_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "bindings", "python", "freedyn", "bin")
 if os.path.isdir(_top_bin):
     os.makedirs(_pkg_bin, exist_ok=True)
     for _src in glob.glob(os.path.join(_top_bin, "*.dll")):
-        shutil.copy2(_src, _pkg_bin)
+        if os.path.basename(_src).lower() not in {d.lower() for d in _GUI_ONLY_DLLS}:
+            shutil.copy2(_src, _pkg_bin)
 
 setup(
     name="freedyn",
