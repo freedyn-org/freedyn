@@ -13,32 +13,49 @@ FreeDyn is a powerful simulation software for modeling and analyzing Multi-Body 
 - **Python/MATLAB/Scilab interfaces** for custom analysis
 - **GUI and command-line tools** for pre- and post-processing
 
+## Download
+
+Download the latest release as a ZIP archive from **[GitHub Releases](https://github.com/freedyn-org/freedyn/releases)**.
+
 ## Documentation
 
-- [Getting Started](docs/GETTING_STARTED.md) - Installation and first steps
-- [Examples](examples/) - Code examples and tutorials
+- [Getting Started](docs/GETTING_STARTED.md) - Installation and first steps (GUI & Python)
+- [Examples](examples/) - Python code examples and tutorials
 - [Release Notes](#release-notes) - What's new
 
-## Quick Start (Python)
+## Quick Start
 
-1. Install from the extracted release directory:
-  ```bash
-  pip install .
-  ```
-2. Run a model from the CLI:
-  ```bash
-  freedyn-run path/to/model.fds
-  ```
+### Option A – GUI (no programming required)
+
+1. Download and extract the release ZIP
+2. Run **`bin\x64_MD\Freedyn_GUI.exe`** from the extracted folder
+3. Open a model file (`.fds`) and start simulating
+
+No Python or other tools required.
+
+### Option B – Python Scripting
+
+For automated simulations, custom analysis, and batch processing:
+
+1. Install the Python bindings from the extracted release directory:
+   ```bash
+   cd C:\FreeDyn
+   pip install .
+   ```
+2. Run a model from the command line:
+   ```bash
+   freedyn-run path/to/model.fds
+   ```
 3. Or script it:
-  ```python
-  import freedyn as fd
+   ```python
+   import freedyn as fd
 
-  fd.initialize()  # loads freedyn.dll
-  with fd.Model("path/to/model.fds") as model:
-     model.solve()
-     for idx, time, states in model.iterate_time_steps():
-        print(idx, time, states["Q"][0, 0])
-  ```
+   fd.initialize()  # loads freedyn.dll
+   with fd.Model("path/to/model.fds") as model:
+      model.solve()
+      for idx, time, states in model.iterate_time_steps():
+         print(idx, time, states["Q"][0, 0])
+   ```
 
 More detail: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
 
@@ -58,35 +75,39 @@ More detail: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
 - **Custom measures** - User-defined outputs
 
 ### Integration Options
+- **GUI** - Pre- and post-processing with `Freedyn_GUI.exe`
 - **Python API** - Programmatic simulation and analysis
-- **MATLAB interface** - Integration with MATLAB workflows
-- **Scilab interface** - Open-source alternative to MATLAB
+- **MATLAB API** - Scripting via `freedyn_api.m` + Simulink integration
+- **Scilab API** - Scripting via `freedyn_api.sce` (uses MT variant)
 - **C interface (CDLL)** - Direct DLL linking for other languages
 
 ## Architecture
 
-FreeDyn consists of several core components:
+FreeDyn consists of several components:
 
-- **freedyn.dll** - C-interface Dynamic Link Library (core solver)
-- **Python bindings** - High-level API (Model, ModelInfo, analysis functions)
-- **CLI tool** - Command-line interface (freedyn-run)
-- **GUI/CLI tools** - Pre- and post-processing
+- **Freedyn_GUI.exe** - Graphical pre- and post-processor
+- **freedyn.dll** - Core MBS solver (C-interface Dynamic Link Library)
+- **Python bindings** - High-level API for scripting and analysis (open source)
+- **CLI tool** - Command-line interface (`freedyn-run`)
 
 ## Requirements
 
-### Runtime
-- Windows (tested on Windows 7, 10, 11)
+### GUI / Standalone Use
+- Windows 7 or later (64-bit)
 - Visual C++ Redistributable (included in release)
-- Intel MKL library (included in release)
+- Intel MKL runtime (included in release)
 
-### Development (for bindings)
+### Python Bindings (optional)
 - Python 3.8+
-- numpy
-- scipy
+- numpy, scipy
 
 ## License
 
 FreeDyn is released under the GNU Lesser General Public License v3.
+
+The Python bindings (source code in this repository) are open source.
+The binary components (`freedyn.dll`, `Freedyn_GUI.exe`, etc.) are distributed
+as pre-built binaries via [GitHub Releases](https://github.com/freedyn-org/freedyn/releases).
 
 See [LICENSE](LICENSE) for details.
 
@@ -109,7 +130,7 @@ See [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-To contribute to FreeDyn, please:
+Contributions to the Python bindings are welcome:
 
 1. Check existing [issues](https://github.com/freedyn-org/freedyn/issues)
 2. Follow the coding guidelines

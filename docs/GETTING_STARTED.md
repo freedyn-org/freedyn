@@ -1,70 +1,102 @@
 # Getting Started with FreeDyn
 
-This guide covers installation, a first run, and common tasks with the current Python API.
+This guide covers installation and first steps – both for GUI users and Python developers.
 
 ## Contents
 
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Python Setup](#python-setup)
-- [First Run](#first-run)
-- [Common Tasks](#common-tasks)
+- [Download](#download)
+- [Installation (GUI)](#installation-gui)
+- [Installation (Python Bindings)](#installation-python-bindings)
+- [First Run – GUI](#first-run--gui)
+- [First Run – Python](#first-run--python)
+- [Common Tasks (Python)](#common-tasks)
 - [Troubleshooting](#troubleshooting)
 - [Examples](#examples)
 - [Support](#support)
 
-## Prerequisites
+## Download
 
-- Windows 7 or later (64-bit recommended)
+Download the latest release ZIP from **[GitHub Releases](https://github.com/freedyn-org/freedyn/releases)**.
+
+Extract it to a location of your choice, e.g. `C:\FreeDyn`. The extracted folder contains:
+
+```
+C:\FreeDyn\
+├── bin\
+│   ├── x64_MD\              # MD variant: Freedyn_GUI.exe, freedyn.dll, dependencies
+│   └── x64_MT\              # MT variant: static CRT build
+├── bindings\python\         # Python API (source code)
+├── examples\                # Example scripts (Python)
+├── docs\                    # Documentation
+├── setup.py
+└── README.md
+```
+
+## Installation (GUI)
+
+No installation required. After extracting the ZIP:
+
+1. Navigate to the `bin\x64_MD\` folder
+2. Double-click **`Freedyn_GUI.exe`**
+
+**Prerequisites (all included in the release):**
+- Windows 7 or later (64-bit)
+- Visual C++ Redistributable
+- Intel MKL runtime
+
+If Windows reports missing DLLs, install the Visual C++ Redistributable from
+the release folder or from https://support.microsoft.com/en-us/help/2977003.
+
+## Installation (Python Bindings)
+
+The Python bindings are optional – install them if you want scripting,
+automation, or advanced analysis capabilities.
+
+**Prerequisites:**
 - Python 3.8 or later
-- freedyn.dll (included in the release)
-- Visual C++ Redistributable (included in the release)
+- The extracted release (see above)
 
-## Installation
+From the extracted release directory:
+```bash
+cd C:\FreeDyn
+pip install .
+```
 
-1. Download the release zip: https://github.com/freedyn-org/freedyn/releases
-2. Extract (example layout):
-   ```
-   C:\FreeDyn\
-   ├── bin\                  # freedyn.dll and dependencies
-   ├── bindings\python\      # Python API
-   ├── examples\             # Example scripts
-   ├── docs\                 # Documentation
-   ├── setup.py
-   └── README.md
-   ```
-3. Install the Python package:
-   ```bash
-   cd C:\FreeDyn
-   pip install .
-   ```
-   For editable/development installs:
-   ```bash
-   pip install -e .
-   ```
-4. (Optional) Manual path instead of install:
-   ```python
-   import sys
-   sys.path.insert(0, r"C:\FreeDyn\bindings\python")
-   ```
+For editable/development installs:
+```bash
+pip install -e .
+```
 
-## Python Setup
-
-Create a virtual environment (recommended):
+**Recommended:** use a virtual environment:
 ```bash
 python -m venv freedyn_env
 freedyn_env\Scripts\activate
 pip install .
 ```
 
-## First Run
+(Optional) Use the Python API without installing:
+```python
+import sys
+sys.path.insert(0, r"C:\FreeDyn\bindings\python")
+```
+
+## First Run – GUI
+
+1. Start `Freedyn_GUI.exe` from the `bin\x64_MD\` folder
+2. Open a model file (`.fds`) via **File → Open**
+3. Configure simulation settings and run
+
+The GUI provides pre-processing (model setup, visualization) and
+post-processing (result plots, animation).
+
+## First Run – Python
 
 ### CLI
 ```bash
 freedyn-run C:\path\to\model.fds
 ```
 
-### Python
+### Script
 Create `my_first_simulation.py`:
 ```python
 import freedyn as fd
@@ -136,14 +168,19 @@ if names:
 
 ## Troubleshooting
 
-### "freedyn.dll not found"
-1. Verify `bin/freedyn.dll` exists.
+### Freedyn_GUI.exe does not start
+1. Make sure all files from the release ZIP are extracted (do not run from inside the ZIP).
+2. Check that `freedyn.dll` and other DLLs are in the same folder as `Freedyn_GUI.exe` (`bin\x64_MD\`).
+3. Install the Visual C++ Redistributable (included in release or from https://support.microsoft.com/en-us/help/2977003).
+
+### "freedyn.dll not found" (Python)
+1. Verify `bin/freedyn.dll` exists in the extracted release.
 2. Add bin to PATH before importing:
    ```python
    import os
    os.environ['PATH'] = r"C:\FreeDyn\bin;" + os.environ['PATH']
    ```
-3. Reinstall VC++ redistributable (included in release or https://support.microsoft.com/en-us/help/2977003).
+3. Reinstall VC++ redistributable (see above).
 
 ### "Model creation failed"
 1. Check the `.fds` path is correct and accessible.
