@@ -63,13 +63,22 @@ def initialize(dll_path: Optional[str] = None) -> None:
     if dll_path is not None:
         candidates.append(dll_path)
     else:
+        # Search locations:
+        #   1) package bin/  (inside installed wheel)
+        #   2) top-level bin/x64_MD/  (repo / extracted release)
+        #   3) PATH
         package_bin = os.path.abspath(os.path.join(os.path.dirname(__file__), 'bin'))
-        if os.path.isdir(package_bin):
+        repo_bin = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'bin', 'x64_MD'))
+
+        search_dirs = [d for d in (package_bin, repo_bin) if os.path.isdir(d)]
+
+        for bin_dir in search_dirs:
             current_path = os.environ.get('PATH', '')
-            os.environ['PATH'] = f"{package_bin};{current_path}"
+            if bin_dir not in current_path:
+                os.environ['PATH'] = f"{bin_dir};{current_path}"
 
             for name in DEFAULT_DLL_NAMES:
-                candidate = os.path.join(package_bin, name)
+                candidate = os.path.join(bin_dir, name)
                 if os.path.exists(candidate):
                     candidates.append(candidate)
 

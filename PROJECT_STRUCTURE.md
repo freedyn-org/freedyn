@@ -5,34 +5,48 @@ freedyn/
 │
 ├── 📄 LICENSE                          ← LGPL v3 License
 ├── 📄 README.md                        ← Project overview
-├── 📄 setup.py                         ← Package installation (reads version from _version.py)
+├── 📄 setup.py                         ← Package installation (copies bin/*.dll into wheel)
 ├── 📄 requirements.txt                 ← Python dependencies (numpy, scipy)
-├── 📄 MANIFEST.in                      ← Include DLL binaries in distributions
 ├── 📄 .gitignore                       ← Git ignore rules
 │
+├── 📁 bin/                             ← Binaries (gitignored, from release or build)
+│   ├── 📁 x64_MD/                        MD variant (dynamic CRT, used by Python + GUI)
+│   │   ├── Freedyn_GUI.exe
+│   │   ├── freedyn.dll
+│   │   └── *.dll                          Runtime dependencies
+│   └── 📁 x64_MT/                        MT variant (static CRT, standalone use)
+│   │   ├── freedyn_mt.dll
+│   │   └── *.dll                          Runtime dependencies
+│
 ├── 📚 Documentation
-│   └── 📄 docs/GETTING_STARTED.md      ← Install and first steps
+│   └── 📄 docs/GETTING_STARTED.md      ← Install and first steps (GUI & Python)
 │
 ├── 📁 bindings/
-│   └── 📁 python/
-│       └── 📁 freedyn/                 ← Python package
-│           │
-│           ├── 📄 __init__.py          ← Clean public API (refactored)
-│           ├── 📄 _version.py          ← SINGLE VERSION SOURCE ✨
-│           │
-│           ├── 🎯 User-Facing Modules
-│           │   ├── 📄 models.py        ← Model & ModelInfo classes (NEW)
-│           │   └── 📄 analysis.py      ← Advanced analysis (refactored from fdApi2)
-│           │
-│           ├── 🔧 Internal Modules
-│           │   ├── 📄 _core.py         ← Low-level C bindings (refactored from fdApi)
-│           │   ├── 📄 _ctypes_utils.py ← ctypes helpers (NEW)
-│           │   └── 📄 exceptions.py    ← 8 custom exception classes (NEW)
-│           │
-│           ├── �️ CLI
-│           │   └── 📄 cli.py           ← Command-line entry point (freedyn-run)
-│           │
-│           └── 📄 bin/                 ← Compiled DLLs (freedyn.dll + dependencies)
+│   ├── 📁 python/
+│   │   └── 📁 freedyn/                 ← Python package (open source)
+│   │       │
+│   │       ├── 📄 __init__.py          ← Clean public API (refactored)
+│   │       ├── 📄 _version.py          ← SINGLE VERSION SOURCE ✨
+│   │       │
+│   │       ├── 🎯 User-Facing Modules
+│   │       │   ├── 📄 models.py        ← Model & ModelInfo classes
+│   │       │   └── 📄 analysis.py      ← Advanced analysis
+│   │       │
+│   │       ├── 🔧 Internal Modules
+│   │       │   ├── 📄 _core.py         ← Low-level C bindings
+│   │       │   ├── 📄 _ctypes_utils.py ← ctypes helpers
+│   │       │   └── 📄 exceptions.py    ← Custom exception classes
+│   │       │
+│   │       └── 🖥️ CLI
+│   │           └── 📄 cli.py           ← Command-line entry point (freedyn-run)
+│   │
+│   └── 📁 scilab/
+│       └── 📄 freedyn_api.sce           ← Scilab bindings (uses x64_MT / freedyn_mt.dll)
+│
+│   └── 📁 matlab/
+│       ├── 📄 freedyn_api.m             ← MATLAB bindings (struct-based API)
+│       ├── 📄 initFreeDyn2Simulink.m    ← Simulink S-Function generator
+│       └── 📄 sfun_BLANK.c             ← S-Function C template
 │
 ├── 📁 docs/
 │   └── 📄 GETTING_STARTED.md

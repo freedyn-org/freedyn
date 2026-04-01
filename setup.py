@@ -1,22 +1,39 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Distribution
+import glob
+import os
+import shutil
 
-# Read version from _version.py
-import re
-with open("bindings/python/freedyn/_version.py") as f:
-    version = re.search(r'__version__ = "(.*?)"', f.read()).group(1)
+
+class BinaryDistribution(Distribution):
+    """Force platform-specific wheel (win_amd64) because we ship native DLLs."""
+    def has_ext_modules(self):
+        return True
+
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
+# Copy DLLs from top-level bin/x64_MD/ into the package so they are included
+# in wheels. Python must use the MD (dynamic CRT) variant.
+_top_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "x64_MD")
+_pkg_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "bindings", "python", "freedyn", "bin")
+if os.path.isdir(_top_bin):
+    os.makedirs(_pkg_bin, exist_ok=True)
+    for _src in glob.glob(os.path.join(_top_bin, "*.dll")):
+        shutil.copy2(_src, _pkg_bin)
+
 setup(
     name="freedyn",
-    version=version,
+    use_scm_version=True,
+    setup_requires=["setuptools-scm"],
     author="FreeDyn Team",
     description="Python bindings for FreeDyn Multi-Body System (MBS) simulator - Windows only",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/freedyn-org/freedyn",
     license="LGPL-3.0",
+    distclass=BinaryDistribution,
     package_dir={"": "bindings/python"},
     packages=find_packages(where="bindings/python"),
     include_package_data=True,
