@@ -27,6 +27,7 @@ from ._version import __version__
 from .models import Model, ModelInfo
 from . import _core as core
 from . import analysis
+from .analysis import MBS_SysMat_slots
 from . import exceptions
 
 __author__ = "FreeDyn Team"
