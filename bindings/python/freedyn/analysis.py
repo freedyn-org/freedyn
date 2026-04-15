@@ -331,3 +331,69 @@ def get_damping_matrix(states: Dict[str, np.ndarray]) -> csr_matrix:
     
     matrix_idx = create_matrix(matrix_ids, row_pos, col_pos, scales)
     return get_matrix(matrix_idx)
+
+# ============================================================================
+# Slots for optimization loops
+# ============================================================================
+
+class MBS_SysMat_slots:
+    
+    __slots__ = ['dll', 'dll_row_ind', 'dll_col_ind', 'dll_nonzeros', 
+                 'modeMAT_sparse', 
+                 'flat_idx', 'dense_mat_flat', 'dense_mat', 'sp_mat',
+                 'c_idx_mat']
+    
+    
+    def __init__(self, matrix_index: int, modeMAT_sparse):
+        
+        self.modeMAT_sparse = modeMAT_sparse
+        
+        self.dll = _core.get_dll()
+        
+        self.dll.getModelRelatedMatrix.argtypes = [POINTER(c_int),
+                                                   np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
+                                                   np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
+                                                   np.ctypeslib.ndpointer(dtype=c_double, ndim=1)]
+        
+        mat_num_rows, mat_num_cols, num_nonzeros = get_matrix_dimensions(matrix_index)
+        
+        self.dll_row_ind = np.zeros(mat_num_rows + 1, dtype=c_int)
+        self.dll_col_ind = np.zeros(num_nonzeros, dtype=c_int)
+        self.dll_nonzeros = np.zeros(num_nonzeros)
+        
+        self.c_idx_mat = c_int(matrix_index)
+        
+        self.dll.getModelRelatedMatrix(byref(self.c_idx_mat), self.dll_row_ind, self.dll_col_ind, self.dll_nonzeros)
+        
+        # Convert 1-based indices to 0-based
+        col_ind = self.dll_col_ind - 1
+        row_ind = self.dll_row_ind - 1
+        
+        if self.modeMAT_sparse:
+            self.sp_mat = csr_matrix((self.dll_nonzeros, col_ind, row_ind), shape=(mat_num_rows, mat_num_cols))
+            
+        else:
+            # dense_mat[dense_mat_rows, col_ind] = dll_nonzeros
+            dense_mat_rows = np.repeat(np.arange(mat_num_rows), np.diff(row_ind))
+            
+            """ Faster: Flat 1D index """
+            self.flat_idx = dense_mat_rows * mat_num_cols + col_ind
+            self.dense_mat = np.zeros((mat_num_rows, mat_num_cols))
+            self.dense_mat_flat = self.dense_mat.ravel()
+
+    def set_index(self, new_idx: int):
+        self.c_idx_mat.value = new_idx
+        
+        
+    def update_dll_nonzeros(self): 
+        self.dll.getModelRelatedMatrix(byref(self.c_idx_mat), 
+                                       self.dll_row_ind, 
+                                       self.dll_col_ind, 
+                                       self.dll_nonzeros)
+        
+        
+    def update_data_in_matrix(self):
+        if self.modeMAT_sparse:
+            self.sp_mat.data[:] = self.dll_nonzeros
+        else:
+            self.dense_mat_flat[self.flat_idx] = self.dll_nonzeros
