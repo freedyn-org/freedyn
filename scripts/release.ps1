@@ -25,7 +25,7 @@ param(
     [string]$PyPIRepo = "testpypi",
     [switch]$SkipPyPI,
     [switch]$SkipGitHub,
-    [switch]$DryRun   # Build only – no tag, no upload, no GitHub Release
+    [switch]$DryRun   # Build only - no tag, no upload, no GitHub Release
 )
 
 Set-StrictMode -Version Latest
@@ -82,7 +82,7 @@ if ($DryRun) {
 # 1. Create and push git tag
 # ---------------------------------------------------------------------------
 if ($DryRun) {
-    Step "Tagging $tag (DryRun – skipped)"
+    Step "Tagging $tag (DryRun - skipped)"
     Write-Host "  Would create tag $tag" -ForegroundColor Yellow
 } else {
     Step "Tagging $tag"
@@ -117,7 +117,7 @@ if ($sdist) { Write-Host "  Built: $($sdist.Name)" }
 # 3. Upload to PyPI
 # ---------------------------------------------------------------------------
 if ($DryRun) {
-    Step "PyPI upload (DryRun – skipped)"
+    Step "PyPI upload (DryRun - skipped)"
     Write-Host "  Would run: twine check + twine upload to $PyPIRepo" -ForegroundColor Yellow
 } elseif (-not $SkipPyPI) {
     Step "Uploading to $PyPIRepo"
@@ -141,7 +141,7 @@ if ($DryRun) {
 # 4. Create GitHub Release
 # ---------------------------------------------------------------------------
 if ($DryRun) {
-    Step "GitHub Release (DryRun – skipped)"
+    Step "GitHub Release (DryRun - skipped)"
     Write-Host "  Would create: gh release create $tag" -ForegroundColor Yellow
 } elseif (-not $SkipGitHub) {
     Step "Creating GitHub Release $tag"
@@ -170,7 +170,7 @@ if ($DryRun) {
 Step "Release $tag complete"
 Write-Host "  Wheel:  $($wheel.Name)"
 if ($DryRun) {
-    Write-Host "  DryRun complete – no tag, no upload, no GitHub Release." -ForegroundColor Yellow
+    Write-Host "  DryRun complete - no tag, no upload, no GitHub Release." -ForegroundColor Yellow
 } else {
     if (-not $SkipPyPI)   { Write-Host "  PyPI:   https://pypi.org/project/freedyn/$Version/" }
     if (-not $SkipGitHub) { Write-Host "  GitHub: https://github.com/freedyn-org/freedyn/releases/tag/$tag" }
