@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     FreeDyn release script: tag, build wheel + sdist, upload to PyPI,
-    create GitHub Release with artifacts.
+    create GitHub Release with bin ZIP artifacts.
 
 .PARAMETER Version
     Version string, e.g. "1.0.2" (without leading "v").
@@ -150,12 +150,26 @@ if ($DryRun) {
 # ---------------------------------------------------------------------------
 if ($DryRun) {
     Step "GitHub Release (DryRun - skipped)"
-    Write-Host "  Would create: gh release create $tag" -ForegroundColor Yellow
+    Write-Host "  Would create and upload:" -ForegroundColor Yellow
+    Write-Host "    dist/release_assets/FreeDyn-$Version-win-x64_MD.zip" -ForegroundColor Yellow
+    Write-Host "    dist/release_assets/FreeDyn-$Version-win-x64_MT.zip" -ForegroundColor Yellow
 } elseif (-not $SkipGitHub) {
     Step "Creating GitHub Release $tag"
 
-    $artifacts = @($wheel.FullName)
-    if ($sdist) { $artifacts += $sdist.FullName }
+    $releaseAssetsDir = Join-Path "dist" "release_assets"
+    if (Test-Path $releaseAssetsDir) { Remove-Item $releaseAssetsDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $releaseAssetsDir | Out-Null
+
+    $mdZip = Join-Path $releaseAssetsDir "FreeDyn-$Version-win-x64_MD.zip"
+    $mtZip = Join-Path $releaseAssetsDir "FreeDyn-$Version-win-x64_MT.zip"
+
+    if (-not (Test-Path "bin/x64_MD")) { Die "Missing bin/x64_MD folder." }
+    if (-not (Test-Path "bin/x64_MT")) { Die "Missing bin/x64_MT folder." }
+
+    Compress-Archive -Path "bin/x64_MD/*" -DestinationPath $mdZip -Force
+    Compress-Archive -Path "bin/x64_MT/*" -DestinationPath $mtZip -Force
+
+    $artifacts = @($mdZip, $mtZip)
 
     $releaseNotes = "Release $tag`n`nSee GETTING_STARTED.md for usage."
 
@@ -167,6 +181,9 @@ if ($DryRun) {
 
     & gh @ghArgs
     if ($LASTEXITCODE -ne 0) { Die "GitHub release creation failed." }
+    Write-Host "  GitHub assets uploaded:" 
+    Write-Host "    $(Split-Path $mdZip -Leaf)"
+    Write-Host "    $(Split-Path $mtZip -Leaf)"
     Write-Host "  GitHub Release created: https://github.com/freedyn-org/freedyn/releases/tag/$tag"
 } else {
     Write-Host "  Skipping GitHub Release (-SkipGitHub)."
