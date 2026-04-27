@@ -1,5 +1,6 @@
 include LICENSE
 include README.md
+recursive-include include *.h
 recursive-include bin/x64_MD *.dll
 recursive-include bindings/python/freedyn *.py
 recursive-include bindings/python/freedyn/bin *.dll

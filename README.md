@@ -20,6 +20,7 @@ Download the latest release as a ZIP archive from **[GitHub Releases](https://gi
 ## Documentation
 
 - [Getting Started](docs/GETTING_STARTED.md) - Installation and first steps (GUI & Python)
+- [C API](docs/C_API.md) - Canonical C header location and ABI conventions
 - [Examples](examples/) - Python code examples and tutorials
 - [Release Notes](#release-notes) - What's new
 
@@ -79,7 +80,7 @@ More detail: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
 - **Python API** - Programmatic simulation and analysis
 - **MATLAB API** - Scripting via `freedyn_api.m` + Simulink integration
 - **Scilab API** - Scripting via `freedyn_api.sce` (uses MT variant)
-- **C interface (CDLL)** - Direct DLL linking for other languages
+- **C interface (CDLL)** - Direct DLL linking for other languages (see `include/freedyn/freedyn_c_api.h`)
 
 ## Architecture
 

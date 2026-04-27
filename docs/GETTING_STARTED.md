@@ -9,6 +9,7 @@ This guide covers installation and first steps – both for GUI users and Python
 - [Installation (Python Bindings)](#installation-python-bindings)
 - [First Run – GUI](#first-run--gui)
 - [First Run – Python](#first-run--python)
+- [State Model](#state-model)
 - [Common Tasks (Python)](#common-tasks)
 - [Troubleshooting](#troubleshooting)
 - [Examples](#examples)
@@ -127,6 +128,30 @@ Run it:
 python my_first_simulation.py
 ```
 
+## State Model
+
+FreeDyn uses a **cached-state architecture**: the DLL holds one current system
+state internally. All query functions (matrices, force vectors, measures, …)
+operate on that cached state. There are two ways the cache gets set:
+
+1. **After the solver ran** — `model.solve()` or `model.solve_until(t)` leave
+   the system at the last computed time step. All query functions can be called
+   immediately without an explicit `update_system` call.
+
+2. **Arbitrary state (post-processing / optimization)** — call
+   `fd.update_system(time, states)` first, then call any query functions.
+   This is the typical pattern when iterating over stored results:
+
+```python
+for idx, time, states in model.iterate_time_steps():
+    fd.update_system(time, states)   # sets the cached state
+    M = fd.analysis.get_mass_matrix()
+    f = fd.analysis.get_physical_dof_vector('SUMOFALLFORCES')
+```
+
+`update_system` is **not** a solver step — it only evaluates kinematics and
+forces at the given state without advancing time.
+
 ## Common Tasks
 
 All examples assume `fd.initialize()` and an active `model` context.
@@ -135,10 +160,11 @@ All examples assume `fd.initialize()` and an active `model` context.
 ```python
 states = model.create_state_vectors()
 time, states = model.get_states_at_time(0)
+fd.update_system(time, states)
 
-M = fd.analysis.get_mass_matrix(states)
-K = fd.analysis.get_stiffness_matrix(states)
-D = fd.analysis.get_damping_matrix(states)
+M = fd.analysis.get_mass_matrix()
+K = fd.analysis.get_stiffness_matrix()
+D = fd.analysis.get_damping_matrix()
 
 print(M.shape, K.shape, D.shape)
 ```
@@ -147,9 +173,10 @@ print(M.shape, K.shape, D.shape)
 ```python
 states = model.create_state_vectors()
 time, states = model.get_states_at_time(0)
+fd.update_system(time, states)
 
-f_ext = fd.analysis.get_physical_dof_vector('SUMOFEXTFORCES', time, states)
-f_all = fd.analysis.get_physical_dof_vector('SUMOFALLFORCES', time, states)
+f_ext = fd.analysis.get_physical_dof_vector('SUMOFEXTFORCES')
+f_all = fd.analysis.get_physical_dof_vector('SUMOFALLFORCES')
 ```
 
 ### Parameters and splines

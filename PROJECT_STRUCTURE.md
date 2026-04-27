@@ -9,6 +9,10 @@ freedyn/
 ├── 📄 requirements.txt                 ← Python dependencies (numpy, scipy)
 ├── 📄 .gitignore                       ← Git ignore rules
 │
+├── 📁 include/                         ← Canonical C API headers
+│   └── 📁 freedyn/
+│       └── 📄 freedyn_c_api.h
+│
 ├── 📁 bin/                             ← Binaries (gitignored, from release or build)
 │   ├── 📁 x64_MD/                        MD variant (dynamic CRT, used by Python + GUI)
 │   │   ├── Freedyn_GUI.exe

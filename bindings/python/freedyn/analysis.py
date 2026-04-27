@@ -5,7 +5,7 @@ Matrix and vector extraction, Jacobian computations, and advanced
 dynamics analysis.
 """
 
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from ctypes import c_int, c_double, c_char_p, byref, POINTER
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -47,49 +47,38 @@ VECTOR_TYPES = {
 
 def get_physical_dof_vector(
     vector_type: str,
-    time: float,
-    states: Dict[str, np.ndarray]
 ) -> np.ndarray:
     """Get force or dynamics-related vector for physical DOFs.
-    
+
+    The system must already be at the desired state via update_system() or
+    because the solver just placed it there.
+
     Args:
         vector_type: Type of vector ('ACCINERTIAFORCE', 'CONSTRFORCE', etc.)
-        time: Time value
-        states: Current state dictionary with Q, Qd, Qdd, L
-        
+
     Returns:
         Numpy array of the requested vector
-        
+
     Raises:
         ConstraintError: If computation fails
     """
     dll = _core.get_dll()
-    
+
     if vector_type not in VECTOR_TYPES:
         raise ValueError(f"Unknown vector type: {vector_type}")
-    
+
     c_vector_type = c_char_p(VECTOR_TYPES[vector_type].encode("utf-8"))
-    c_time = c_double(time)
     c_success = c_int(-1)
-    
+
     info = _core.get_model_info()
-    q_vec = np.zeros((info["numPhyDofs"], 1))
-    
-    dll.getPhysicalDofRelatedVector.argtypes = [
+    q_vec = np.zeros((info["numGeneralizedCoordinates"], 1))
+
+    dll.getForceVector.argtypes = [
         c_char_p,
-        POINTER(c_double),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
         np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
         POINTER(c_int)
     ]
-    dll.getPhysicalDofRelatedVector(
-        c_vector_type, byref(c_time),
-        states["Q"], states["Qd"], states["Qdd"], states["L"],
-        q_vec, byref(c_success)
-    )
+    dll.getForceVector(c_vector_type, q_vec, byref(c_success))
     
     if c_success.value <= 0:
         raise ConstraintError(f"Failed to compute {vector_type} vector")
@@ -99,56 +88,45 @@ def get_physical_dof_vector(
 
 def get_constraint_vector(
     vector_type: str,
-    time: float,
-    states: Dict[str, np.ndarray]
 ) -> np.ndarray:
     """Get constraint-related vector (Lagrange multipliers, errors, etc.).
-    
+
+    The system must already be at the desired state via update_system() or
+    because the solver just placed it there.
+
     Args:
         vector_type: Type of vector ('CONSTRERROR', 'DCONSTRDT', etc.)
-        time: Time value
-        states: Current state dictionary
-        
+
     Returns:
         Numpy array of constraint values
-        
+
     Raises:
         ConstraintError: If computation fails
     """
     dll = _core.get_dll()
-    
+
     constraint_types = {
         "CONSTRERROR": "MBS_CONSTRERROR",           # Constraint equation residuum
         "DCONSTRDT": "MBS_DCONSTRDT",               # Time derivative
         "DCQDTMULTQD": "MBS_DCQDTMULTQD",           # Cqd*Qd
         "D2CONSTRDT2": "MBS_D2CONSTRDT2",           # Second time derivative
     }
-    
+
     if vector_type not in constraint_types:
         raise ValueError(f"Unknown constraint vector type: {vector_type}")
-    
+
     c_vector_type = c_char_p(constraint_types[vector_type].encode("utf-8"))
-    c_time = c_double(time)
     c_success = c_int(-1)
-    
+
     info = _core.get_model_info()
-    l_vec = np.zeros((info["numIntDof"] + info["numExtDof"], 1))
-    
-    dll.getLagrangeMultiplierRelatedVector.argtypes = [
+    l_vec = np.zeros((info["numLagrangeMultipliers"], 1))
+
+    dll.getConstraintVector.argtypes = [
         c_char_p,
-        POINTER(c_double),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
         np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
         POINTER(c_int)
     ]
-    dll.getLagrangeMultiplierRelatedVector(
-        c_vector_type, byref(c_time),
-        states["Q"], states["Qd"], states["Qdd"], states["L"],
-        l_vec, byref(c_success)
-    )
+    dll.getConstraintVector(c_vector_type, l_vec, byref(c_success))
     
     if c_success.value <= 0:
         raise ConstraintError(f"Failed to compute {vector_type} vector")
@@ -278,12 +256,12 @@ def get_matrix(matrix_index: int) -> csr_matrix:
     return csr_matrix((nonzeros, col_ind, row_ind), shape=(num_rows, num_cols))
 
 
-def get_mass_matrix(states: Dict[str, np.ndarray]) -> csr_matrix:
+def get_mass_matrix() -> csr_matrix:
     """Get global mass matrix M(q) at current configuration.
-    
-    Args:
-        states: Current state dictionary
-        
+
+    The system must already be at the desired state via update_system() or
+    because the solver just placed it there.
+
     Returns:
         Sparse mass matrix
     """
@@ -297,12 +275,12 @@ def get_mass_matrix(states: Dict[str, np.ndarray]) -> csr_matrix:
     return get_matrix(matrix_idx)
 
 
-def get_stiffness_matrix(states: Dict[str, np.ndarray]) -> csr_matrix:
+def get_stiffness_matrix() -> csr_matrix:
     """Get global stiffness matrix K at current configuration.
-    
-    Args:
-        states: Current state dictionary
-        
+
+    The system must already be at the desired state via update_system() or
+    because the solver just placed it there.
+
     Returns:
         Sparse stiffness matrix
     """
@@ -315,12 +293,12 @@ def get_stiffness_matrix(states: Dict[str, np.ndarray]) -> csr_matrix:
     return get_matrix(matrix_idx)
 
 
-def get_damping_matrix(states: Dict[str, np.ndarray]) -> csr_matrix:
+def get_damping_matrix() -> csr_matrix:
     """Get global damping matrix D at current configuration.
-    
-    Args:
-        states: Current state dictionary
-        
+
+    The system must already be at the desired state via update_system() or
+    because the solver just placed it there.
+
     Returns:
         Sparse damping matrix
     """

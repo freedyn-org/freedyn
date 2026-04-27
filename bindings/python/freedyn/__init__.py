@@ -9,7 +9,8 @@ Quick Start:
     >>> with fd.Model('model.fds') as model:
     ...     model.solve()
     ...     for time_idx, time, states in model.iterate_time_steps():
-    ...         forces = fd.analysis.get_physical_dof_vector('SUMOFALLFORCES', time, states)
+    ...         fd.update_system(time, states)
+    ...         forces = fd.analysis.get_physical_dof_vector('SUMOFALLFORCES')
 
 Main Classes:
     - Model: High-level interface for simulations

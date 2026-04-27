@@ -17,32 +17,37 @@ class ModelInfo:
     """Container for model information and metadata.
     
     Attributes:
-        num_all_dofs: Total degrees of freedom
-        num_phy_dofs: Physical degrees of freedom
-        num_int_dof: Internal degrees of freedom
-        num_ext_dof: External degrees of freedom
+        num_generalized_coordinates: Length of Q, Qd, Qdd
+        num_lagrange_multipliers: Length of L
+        num_body_states: Length of body-state vector output
         num_bodies: Number of bodies in model
-        num_ext_constr: Number of external constraints
+        num_ext_constraints: Number of external constraints
         num_forces: Number of forces
         num_measures: Number of measures
     """
     
     def __init__(self, info_dict: Dict[str, int]):
         """Initialize from dictionary (typically from _core.get_model_info())."""
-        self.num_all_dofs = info_dict["numAllDofs"]
-        self.num_phy_dofs = info_dict["numPhyDofs"]
-        self.num_int_dof = info_dict["numIntDof"]
-        self.num_ext_dof = info_dict["numExtDof"]
+        self.num_generalized_coordinates = info_dict["numGeneralizedCoordinates"]
+        self.num_lagrange_multipliers = info_dict["numLagrangeMultipliers"]
+        self.num_body_states = info_dict["numBodyStates"]
         self.num_bodies = info_dict["numBodies"]
-        self.num_ext_constr = info_dict["numExtConstr"]
+        self.num_ext_constraints = info_dict["numExtConstraints"]
         self.num_forces = info_dict["numForces"]
         self.num_measures = info_dict["numMeasures"]
+
+        # Backward-compatible aliases
+        self.num_all_dofs = info_dict.get("numAllDofs", self.num_generalized_coordinates + self.num_lagrange_multipliers)
+        self.num_phy_dofs = info_dict.get("numPhyDofs", self.num_generalized_coordinates)
+        self.num_int_dof = info_dict.get("numIntDof", 0)
+        self.num_ext_dof = info_dict.get("numExtDof", self.num_lagrange_multipliers)
+        self.num_ext_constr = info_dict.get("numExtConstr", self.num_ext_constraints)
     
     def __repr__(self) -> str:
         return (
             f"ModelInfo(bodies={self.num_bodies}, "
-            f"phy_dofs={self.num_phy_dofs}, "
-            f"constraints={self.num_ext_constr})"
+            f"gen_coords={self.num_generalized_coordinates}, "
+            f"constraints={self.num_ext_constraints})"
         )
 
 
@@ -169,10 +174,10 @@ class Model:
         info = self.get_info()
         
         return {
-            "Q": np.zeros((info.num_phy_dofs, 1)),
-            "Qd": np.zeros((info.num_phy_dofs, 1)),
-            "Qdd": np.zeros((info.num_phy_dofs, 1)),
-            "L": np.zeros((info.num_int_dof + info.num_ext_dof, 1))
+            "Q": np.zeros((info.num_generalized_coordinates, 1)),
+            "Qd": np.zeros((info.num_generalized_coordinates, 1)),
+            "Qdd": np.zeros((info.num_generalized_coordinates, 1)),
+            "L": np.zeros((info.num_lagrange_multipliers, 1))
         }
     
     def get_states_at_time(self, time_index: int) -> Tuple[float, Dict[str, np.ndarray]]:
