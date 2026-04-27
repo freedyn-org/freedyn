@@ -24,7 +24,8 @@ param(
     [Parameter(Mandatory)][string]$Version,
     [string]$PyPIRepo = "testpypi",
     [switch]$SkipPyPI,
-    [switch]$SkipGitHub
+    [switch]$SkipGitHub,
+    [switch]$DryRun   # Build only – no tag, no upload, no GitHub Release
 )
 
 Set-StrictMode -Version Latest
@@ -51,40 +52,50 @@ if ($dirty) {
     Die "Working tree is dirty. Commit or stash all changes before releasing.`n$dirty"
 }
 
-$currentBranch = git rev-parse --abbrev-ref HEAD
-if ($currentBranch -ne "main") {
-    Write-Warning "Current branch is '$currentBranch', not 'main'. Continue? [y/N]"
-    if ((Read-Host) -notmatch '^[Yy]') { exit 0 }
-}
-
 $tag = "v$Version"
-$existingTag = git tag -l $tag
-if ($existingTag) { Die "Tag $tag already exists." }
 
-# Check required tools
-foreach ($tool in @("python", "git")) {
-    if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { Die "$tool not found in PATH." }
-}
-if (-not $SkipPyPI) {
-    if (-not (python -m twine --version 2>$null)) { Die "twine not installed. Run: pip install twine" }
-}
-if (-not $SkipGitHub) {
-    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Die "GitHub CLI (gh) not found. Install from https://cli.github.com or use -SkipGitHub." }
+if ($DryRun) {
+    Write-Host "  DryRun mode: skipping branch check, tag, PyPI upload and GitHub Release." -ForegroundColor Yellow
+} else {
+    $currentBranch = git rev-parse --abbrev-ref HEAD
+    if ($currentBranch -ne "main") {
+        Write-Warning "Current branch is '$currentBranch', not 'main'. Continue? [y/N]"
+        if ((Read-Host) -notmatch '^[Yy]') { exit 0 }
+    }
+
+    $existingTag = git tag -l $tag
+    if ($existingTag) { Die "Tag $tag already exists." }
+
+    # Check required tools
+    foreach ($tool in @("python", "git")) {
+        if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { Die "$tool not found in PATH." }
+    }
+    if (-not $SkipPyPI) {
+        if (-not (python -m twine --version 2>$null)) { Die "twine not installed. Run: pip install twine" }
+    }
+    if (-not $SkipGitHub) {
+        if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Die "GitHub CLI (gh) not found. Install from https://cli.github.com or use -SkipGitHub." }
+    }
 }
 
 # ---------------------------------------------------------------------------
 # 1. Create and push git tag
 # ---------------------------------------------------------------------------
-Step "Tagging $tag"
-git tag -a $tag -m "Release $tag"
-Write-Host "  Tag created locally."
-
-$pushTag = Read-Host "  Push tag $tag to origin? [y/N]"
-if ($pushTag -match '^[Yy]') {
-    git push origin $tag
-    Write-Host "  Tag pushed."
+if ($DryRun) {
+    Step "Tagging $tag (DryRun – skipped)"
+    Write-Host "  Would create tag $tag" -ForegroundColor Yellow
 } else {
-    Write-Warning "  Tag not pushed. PyPI and GitHub release steps may fail without it."
+    Step "Tagging $tag"
+    git tag -a $tag -m "Release $tag"
+    Write-Host "  Tag created locally."
+
+    $pushTag = Read-Host "  Push tag $tag to origin? [y/N]"
+    if ($pushTag -match '^[Yy]') {
+        git push origin $tag
+        Write-Host "  Tag pushed."
+    } else {
+        Write-Warning "  Tag not pushed. PyPI and GitHub release steps may fail without it."
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -105,7 +116,10 @@ if ($sdist) { Write-Host "  Built: $($sdist.Name)" }
 # ---------------------------------------------------------------------------
 # 3. Upload to PyPI
 # ---------------------------------------------------------------------------
-if (-not $SkipPyPI) {
+if ($DryRun) {
+    Step "PyPI upload (DryRun – skipped)"
+    Write-Host "  Would run: twine check + twine upload to $PyPIRepo" -ForegroundColor Yellow
+} elseif (-not $SkipPyPI) {
     Step "Uploading to $PyPIRepo"
     $repoUrl = if ($PyPIRepo -eq "testpypi") {
         "--repository-url https://test.pypi.org/legacy/"
@@ -126,7 +140,10 @@ if (-not $SkipPyPI) {
 # ---------------------------------------------------------------------------
 # 4. Create GitHub Release
 # ---------------------------------------------------------------------------
-if (-not $SkipGitHub) {
+if ($DryRun) {
+    Step "GitHub Release (DryRun – skipped)"
+    Write-Host "  Would create: gh release create $tag" -ForegroundColor Yellow
+} elseif (-not $SkipGitHub) {
     Step "Creating GitHub Release $tag"
 
     $artifacts = @($wheel.FullName)
@@ -152,5 +169,9 @@ if (-not $SkipGitHub) {
 # ---------------------------------------------------------------------------
 Step "Release $tag complete"
 Write-Host "  Wheel:  $($wheel.Name)"
-if (-not $SkipPyPI)   { Write-Host "  PyPI:   https://pypi.org/project/freedyn/$Version/" }
-if (-not $SkipGitHub) { Write-Host "  GitHub: https://github.com/freedyn-org/freedyn/releases/tag/$tag" }
+if ($DryRun) {
+    Write-Host "  DryRun complete – no tag, no upload, no GitHub Release." -ForegroundColor Yellow
+} else {
+    if (-not $SkipPyPI)   { Write-Host "  PyPI:   https://pypi.org/project/freedyn/$Version/" }
+    if (-not $SkipGitHub) { Write-Host "  GitHub: https://github.com/freedyn-org/freedyn/releases/tag/$tag" }
+}
