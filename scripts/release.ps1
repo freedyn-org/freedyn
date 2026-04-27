@@ -34,6 +34,9 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path $PSScriptRoot -Parent
 Set-Location $RepoRoot
 
+$VenvPython = Join-Path $RepoRoot ".venv\Scripts\python.exe"
+$PythonExe = if (Test-Path $VenvPython) { $VenvPython } else { "python" }
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -67,11 +70,12 @@ if ($DryRun) {
     if ($existingTag) { Die "Tag $tag already exists." }
 
     # Check required tools
-    foreach ($tool in @("python", "git")) {
-        if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { Die "$tool not found in PATH." }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Die "git not found in PATH." }
+    if (($PythonExe -eq "python") -and (-not (Get-Command python -ErrorAction SilentlyContinue))) {
+        Die "python not found in PATH and no local .venv Python found."
     }
     if (-not $SkipPyPI) {
-        if (-not (python -m twine --version 2>$null)) { Die "twine not installed. Run: pip install twine" }
+        if (-not (& $PythonExe -m twine --version 2>$null)) { Die "twine not installed in selected Python env. Run: $PythonExe -m pip install twine" }
     }
     if (-not $SkipGitHub) {
         if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Die "GitHub CLI (gh) not found. Install from https://cli.github.com or use -SkipGitHub." }
@@ -104,7 +108,7 @@ if ($DryRun) {
 Step "Building wheel and sdist"
 if (Test-Path "dist") { Remove-Item "dist" -Recurse -Force }
 
-python -m build --outdir dist
+& $PythonExe -m build --outdir dist
 if ($LASTEXITCODE -ne 0) { Die "Build failed." }
 
 $wheel = Get-ChildItem dist -Filter "*.whl" | Select-Object -First 1
@@ -127,10 +131,14 @@ if ($DryRun) {
         "--repository pypi"
     }
     # twine checks first
-    python -m twine check dist/*
+    & $PythonExe -m twine check dist/*
     if ($LASTEXITCODE -ne 0) { Die "twine check failed." }
 
-    Invoke-Expression "python -m twine upload $repoUrl dist/*"
+    if ($PyPIRepo -eq "testpypi") {
+        & $PythonExe -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+    } else {
+        & $PythonExe -m twine upload --repository pypi dist/*
+    }
     if ($LASTEXITCODE -ne 0) { Die "twine upload failed." }
     Write-Host "  Upload complete."
 } else {
