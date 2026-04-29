@@ -1,0 +1,124 @@
+Header freeDynHeader
+EndHeader
+%
+Body Rigid_EulerParameter_PAI
+ID = 5bfc2204-e9ad-4e37-bfc8-3928fb16f7f8
+Name = mass_1
+	InitialVelocityVector = 1.000000,0.000000,0.000000
+	InitialOmegaVector = 0.000000,0.000000,0.000000
+	RegardVelocityInertiaForcesInsideJacobian = no
+	Mass = 1.000000
+	LocationCenterMass = 0.100000,0.000000,0.000000
+	Inertia = 1.000000,1.000000,1.000000
+	OrientationPAI = 1.000000,0.000000,0.000000,0.000000,1.000000,0.000000,0.000000,0.000000,1.000000
+	Geometry = Sphere 0.050000
+	Geometry Position = 0.100000,0.000000,0.000000
+	Geometry Orientation = 1.000000,0.000000,0.000000,0.000000,1.000000,0.000000,0.000000,0.000000,1.000000
+	Geometry Color = 0,128,255,255
+	Geometry Transparency = 0
+EndBody
+%
+Constraint Generic
+ID = 87f0cead-e111-4297-9f65-55c3a38e7740
+Name = prismatic_x_to_ground
+	BodyIDs = 5bfc2204-e9ad-4e37-bfc8-3928fb16f7f8, 0
+	dxFixed = no
+	dyFixed = yes
+	dzFixed = yes
+	axFixed = yes
+	ayFixed = yes
+	azFixed = yes
+	Location = 0.000000,0.000000,0.000000
+    ConstraintOrientation = 1.000000,0.000000,0.000000,0.000000,1.000000,0.000000,0.000000,0.000000,1.000000
+EndConstraint
+%
+Force GenericForce
+ID = 44f95aec-b59c-4f42-9e4f-4458de4e4141
+Name = spring_damper_ground
+	BodyIDs = 5bfc2204-e9ad-4e37-bfc8-3928fb16f7f8, 0
+	PointOfApplication_Body1 = 0.100000,0.000000,0.000000
+	PointOfApplication_Body2 = 0.000000,0.000000,0.000000
+	ForceDirectionType = SpaceFixed
+	ForceDirection = -1.000000,0.000000,0.000000
+	ForceExpression = PARVAL[stiffness]*MEAVAL[mass_x] + PARVAL[damping]*MEAVAL[mass_vx]
+EndForce
+%
+DataObject Parameter
+ID = cb6089a9-d355-4f9f-a98a-16f9efe31b2a
+Name = stiffness
+	InitialValue = 20.000000
+EndDataObject
+%
+DataObject Parameter
+ID = 4ae8e51f-c985-4706-a350-bf9ef5c90e56
+Name = damping
+	InitialValue = 1.200000
+EndDataObject
+%
+Measure Translational
+ID = ae0f4e46-a14a-445d-af40-f055b3e6f0f6
+Name = mass_x
+	BodyIDs = 5bfc2204-e9ad-4e37-bfc8-3928fb16f7f8, 0
+	MeasureMode = disp
+	MeasureCoordinate = X
+	MeasureLocation_Body1 = 0.100000,0.000000,0.000000
+	MeasureLocation_Body2 = 0.000000,0.000000,0.000000
+    UseInitialValueAsOffset = yes
+EndMeasure
+%
+Measure Translational
+ID = d9480397-f61b-4f4f-a0f8-7eef52df635b
+Name = mass_vx
+	BodyIDs = 5bfc2204-e9ad-4e37-bfc8-3928fb16f7f8, 0
+	MeasureMode = vel
+	MeasureCoordinate = X
+	MeasureLocation_Body1 = 0.100000,0.000000,0.000000
+	MeasureLocation_Body2 = 0.000000,0.000000,0.000000
+    UseInitialValueAsOffset = yes
+EndMeasure
+%
+Simulation Dynamic
+ID = 
+Name = 
+	SimulationTimeBegin = 0.000000
+	InitialPositionFromFile = 0
+	InitialVelocityFromFile = 0
+	SimulationTimeEnd = 2.000000
+	OutputTimeBegin = 0.000000
+	OutputTimeStepSize = 1.000000e-03
+	isExactOutputTimeEnforced = yes
+	WriteConstraintForceResultFile = no
+	WriteForceResultFile = yes
+	WriteVelocityResultFile = no
+	WriteStateResultFile = yes
+	WriteAccelerationResultFile = no
+	WriteExtConstraintLagrangeResultFile = no
+	WriteMeasureResultFile = yes
+EndSimulation
+%
+Solver HHT
+ID = 
+Name = 
+	Alpha = -0.300000
+	MaxNumberOfInnerIterations = 10,0
+	GlobalErrorTolerance = 1.000000e-06
+	SolverMinTimeStep = 1.000000e-14
+	SolverMaxTimeStep = 1.000000e-03
+	ModifyNewmark = no
+	MaxNumOfTimeStepsUsingSameFactorizedJacobian = 0
+	UsePardisoScalingAndMatching = no
+	DebugLevel = 0
+	DebugTimeBegin = 0.000000
+	DebugTimeEnd = 2.000000
+EndSolver
+%
+Globals Settings
+ID = 
+Name = 
+	BackgroundColor = 255,255,255,255
+	BoundingMode = 0
+	COGMarkerScale = 1.000000
+	ConstraintIconScale = 1.000000
+	ForceIconScale = 1.000000
+EndGlobals
+%

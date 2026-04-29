@@ -70,6 +70,18 @@ FDCIDLLMode setModelAsActive(int* iModelIndex, int* oSuccess);
 */
 FDCIDLLMode deleteFreeDynModel(int* iModelIndex, int* oSuccess);
 
+/// Recreate active model internals for a clean rerun after data changes
+/**
+* Performs a clean rerun reset on the currently active model without calling
+* create(), and without deleting/recreating the model handle.
+* Intended for changed parameters/splines/inputs with unchanged topology.
+*
+* Note: with unchanged topology, model-related matrix mappings remain valid.
+*
+* @param[out] oSuccess  int*  1 if successful, 0 on error
+*/
+FDCIDLLMode resetActiveModelForRerun(int* oSuccess);
+
 //=========================================================================
 //=========================================================================
 // MODEL INFORMATION - X2FreeDyn_Model.cpp
@@ -103,7 +115,7 @@ FDCIDLLMode getModelDofInfo(int* oNumGeneralizedCoordinates,
 * Sets the current state of the system to the provided vectors and updates
 * equation-of-motion related quantities (mass/forces/constraints/sensors).
 * Jacobian matrices are updated separately via updateJacobian().
-* This is the ONLY entry point that updates the cached state/time used by
+* This is one entry point that updates the cached state/time used by
 * read-only query functions.
 *
 * @param[in]  iTime     double*  Current simulation time
@@ -114,6 +126,17 @@ FDCIDLLMode getModelDofInfo(int* oNumGeneralizedCoordinates,
 * @param[out] oSuccess  int*     1 if successful, 0 on error
 */
 FDCIDLLMode updateSystem(double* iTime, double iQ[], double iQd[], double iQdd[], double iL[], int* oSuccess);
+
+/// Restore solver state at a stored time step and update all internal quantities
+/**
+* Reads state vectors from the solver result container at iTimeStepIndex,
+* writes them into cached vectors, and executes the same internal system update
+* as updateSystem().
+*
+* @param[in]  iTimeStepIndex  int*  Time step index (one-based, range: 1..oNumOfTimeSteps)
+* @param[out] oSuccess        int*  1 if successful, 0 on error
+*/
+FDCIDLLMode updateSystemAtTimeIndex(int* iTimeStepIndex, int* oSuccess);
 
 /// Update Jacobian matrices at the current cached state
 /**
@@ -162,6 +185,20 @@ FDCIDLLMode modifyDataObject(char iDataObjectLabel[],
                              double iDataX[],
                              double iDataY[],
                              int* oSuccess);
+
+/// Get parameter information
+/**
+* @param[in]  iParameterIndex  int*    Index of the parameter (zero-based)
+* @param[in]  iJobFlag         int*    1 = get parameter label (oCharInfos, min 256), 2 = get count (oIntInfos)
+* @param[out] oIntInfos        int*    Integer information
+* @param[out] oDoubleInfos     double* Double information (reserved)
+* @param[out] oCharInfos       char*   Char information
+*/
+FDCIDLLMode getParameterInformation(int* iParameterIndex,
+                                    int* iJobFlag,
+                                    int oIntInfos[],
+                                    double oDoubleInfos[],
+                                    char oCharInfos[]);
 
 //=========================================================================
 //=========================================================================
@@ -233,6 +270,14 @@ FDCIDLLMode solveTimeInterval(double* iT1, int* oSuccess);
 * @param[out] oSuccess         int*  1 if successful, 0 on error
 */
 FDCIDLLMode getNumberOfSolutionTimeSteps(int* oNumOfTimeSteps, int* oSuccess);
+
+/// Get simulation time value at a stored time step
+/**
+* @param[in]  iTimeStepIndex  int*     Time step index (one-based, range: 1..oNumOfTimeSteps)
+* @param[out] oTime           double*  Simulation time at this step
+* @param[out] oSuccess        int*     1 if successful, 0 on error
+*/
+FDCIDLLMode getTime(int* iTimeStepIndex, double* oTime, int* oSuccess);
 
 /// Get body states (position + rotation matrix) at a stored time step
 /**

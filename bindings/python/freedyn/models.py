@@ -152,6 +152,17 @@ class Model:
             SimulationError: If solving fails
         """
         _core.solve_time_interval(end_time)
+
+    def reset_for_rerun(self) -> None:
+        """Reset the active model internals for a clean rerun after data changes.
+
+        Use this after changing parameters, splines, or similar inputs when the
+        model topology itself has not changed.
+
+        Raises:
+            ModelError: If the DLL does not support this operation or it fails
+        """
+        _core.reset_active_model_for_rerun()
     
     def get_num_time_steps(self) -> int:
         """Get number of time steps from last simulation.
@@ -195,6 +206,20 @@ class Model:
         states = self.create_state_vectors()
         time = _core.get_states_at_time_index_full(time_index, states)
         return time, states
+
+    def get_time_at_index(self, time_index: int) -> float:
+        """Get only the simulation time value at a specific time index.
+
+        Args:
+            time_index: Time step index (0-based)
+
+        Returns:
+            Time value at index
+
+        Raises:
+            StateError: If retrieval fails
+        """
+        return _core.get_time_at_index(time_index)
     
     def update_state(self, time: float, states: Dict[str, np.ndarray]) -> None:
         """Update system to specific time with given states.
@@ -207,6 +232,17 @@ class Model:
             StateError: If update fails
         """
         _core.update_system(time, states)
+
+    def update_state_at_index(self, time_index: int) -> None:
+        """Restore cached solver state directly from a stored result index.
+
+        Args:
+            time_index: Time step index (0-based)
+
+        Raises:
+            StateError: If restoration fails
+        """
+        _core.update_system_at_time_index(time_index)
     
     def iterate_time_steps(self):
         """Generator to iterate through all time steps in results.
@@ -234,6 +270,17 @@ class Model:
             ParameterError: If parameter modification fails
         """
         _core.modify_parameter(param_name, value)
+
+    def get_parameter_names(self) -> List[str]:
+        """Get all available parameter names.
+
+        Returns:
+            List of parameter names
+
+        Raises:
+            ParameterError: If the DLL does not support parameter introspection
+        """
+        return _core.get_parameter_names()
     
     def set_spline(self, spline_name: str, x_values: np.ndarray, y_values: np.ndarray) -> None:
         """Set spline data.

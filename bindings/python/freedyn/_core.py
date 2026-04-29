@@ -102,7 +102,9 @@ def initialize(dll_path: Optional[str] = None) -> None:
     tried = "; ".join(candidates) if candidates else "<none>"
     detail = " | ".join(errors) if errors else "Unknown error"
     raise DLLLoadError(
-        f"Failed to load FreeDyn DLL. Tried: {tried}. Details: {detail}"
+        "Failed to load FreeDyn DLL. "
+        f"Tried: {tried}. Details: {detail}. "
+        "Ensure freedyn.dll and all dependent DLLs are present and match your Python/package build."
     )
 
 
@@ -154,7 +156,13 @@ def create_model(fds_file_path: str, status_output: str = 'SCREEN') -> int:
     try:
         if model_dir:
             os.chdir(model_dir)
-        dll.createFreeDynModel(c_path, c_status, byref(c_model_idx), error_buf)
+        try:
+            dll.createFreeDynModel(c_path, c_status, byref(c_model_idx), error_buf)
+        except OSError as exc:
+            raise ModelError(
+                f"Native model creation crashed for {abs_fds_path}: {exc}. "
+                "Check DLL compatibility and model-dependent input files."
+            ) from exc
     finally:
         os.chdir(prev_cwd)
     
@@ -206,6 +214,24 @@ def set_model_active(model_index: int) -> None:
     set_active(byref(c_model_idx), byref(c_success))
     
     check_success(c_success.value, f"Set model {model_index} active", exception_class=ModelError)
+
+
+def reset_active_model_for_rerun() -> None:
+    """Reset the active model for a clean rerun after data changes.
+
+    Raises:
+        ModelError: If the DLL does not support this operation or it fails
+    """
+    dll = get_dll()
+
+    if not hasattr(dll, "resetActiveModelForRerun"):
+        raise ModelError("resetActiveModelForRerun is not available in DLL")
+
+    c_success = c_int(-1)
+    dll.resetActiveModelForRerun.argtypes = [POINTER(c_int)]
+    dll.resetActiveModelForRerun(byref(c_success))
+
+    check_success(c_success.value, "Reset active model for rerun", exception_class=ModelError)
 
 
 # ============================================================================
@@ -367,6 +393,18 @@ def get_num_time_steps() -> int:
 # States and Results
 # ============================================================================
 
+def _create_state_vectors_for_active_model() -> Dict[str, np.ndarray]:
+    """Create state vector arrays for the currently active model."""
+    info = get_model_info()
+    n_q = info["numGeneralizedCoordinates"]
+    n_l = info["numLagrangeMultipliers"]
+    return {
+        "Q": np.zeros((n_q, 1), dtype=c_double),
+        "Qd": np.zeros((n_q, 1), dtype=c_double),
+        "Qdd": np.zeros((n_q, 1), dtype=c_double),
+        "L": np.zeros((n_l, 1), dtype=c_double),
+    }
+
 def get_states_at_time_index(time_index: int, states: Dict[str, np.ndarray]) -> float:
     """Get states at specific time index from simulation results.
     
@@ -470,6 +508,34 @@ def get_states_at_time_index_full(time_index: int, states: Dict[str, np.ndarray]
     return c_time.value
 
 
+def get_time_at_index(time_index: int) -> float:
+    """Get only the simulation time value at a specific solver-result index.
+
+    Args:
+        time_index: Time step index (0-based)
+
+    Returns:
+        Time value at index
+
+    Raises:
+        StateError: If retrieval fails
+    """
+    dll = get_dll()
+
+    c_time_idx = c_int(time_index + 1)
+    c_time = c_double(0.0)
+
+    if hasattr(dll, "getTime"):
+        c_success = c_int(-1)
+        dll.getTime.argtypes = [POINTER(c_int), POINTER(c_double), POINTER(c_int)]
+        dll.getTime(byref(c_time_idx), byref(c_time), byref(c_success))
+        check_success(c_success.value, f"Get time at index {time_index}", exception_class=StateError)
+        return c_time.value
+
+    states = _create_state_vectors_for_active_model()
+    return get_states_at_time_index_full(time_index, states)
+
+
 def update_system(time: float, states: Dict[str, np.ndarray]) -> None:
     """Update system to a specific time with given states.
     
@@ -500,6 +566,31 @@ def update_system(time: float, states: Dict[str, np.ndarray]) -> None:
     )
     
     check_success(c_success.value, f"Update system to t={time}", exception_class=StateError)
+
+
+def update_system_at_time_index(time_index: int) -> None:
+    """Restore solver state at a stored time index into the cached system state.
+
+    Args:
+        time_index: Time step index (0-based)
+
+    Raises:
+        StateError: If restoration fails
+    """
+    dll = get_dll()
+
+    c_time_idx = c_int(time_index + 1)
+
+    if hasattr(dll, "updateSystemAtTimeIndex"):
+        c_success = c_int(-1)
+        dll.updateSystemAtTimeIndex.argtypes = [POINTER(c_int), POINTER(c_int)]
+        dll.updateSystemAtTimeIndex(byref(c_time_idx), byref(c_success))
+        check_success(c_success.value, f"Update system at time index {time_index}", exception_class=StateError)
+        return
+
+    states = _create_state_vectors_for_active_model()
+    time = get_states_at_time_index_full(time_index, states)
+    update_system(time, states)
 
 
 # ============================================================================
@@ -540,6 +631,73 @@ def modify_parameter(param_label: str, param_value: float) -> None:
     )
     
     check_success(c_success.value, f"Modify parameter {param_label}", exception_class=ParameterError)
+
+
+def get_parameter_names() -> list:
+    """Get all parameter names exposed by the active model.
+
+    Returns:
+        List of parameter name strings
+
+    Raises:
+        ParameterError: If the DLL does not support parameter introspection
+    """
+    dll = get_dll()
+
+    if not hasattr(dll, "getParameterInformation"):
+        raise ParameterError("getParameterInformation is not available in DLL")
+
+    c_job_flag = c_int(2)
+    int_infos = np.zeros(1, dtype=c_int)
+    double_infos = np.zeros(1, dtype=c_double)
+    char_infos = create_string_buffer(256)
+
+    dll.getParameterInformation.argtypes = [
+        POINTER(c_int),
+        POINTER(c_int),
+        np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
+        np.ctypeslib.ndpointer(dtype=c_double, ndim=1),
+        POINTER(c_char)
+    ]
+
+    # Newer C APIs use one-based label indices.
+    # Use 1 for count-query and later auto-detect enumeration start index.
+    c_param_idx = c_int(1)
+    dll.getParameterInformation(
+        byref(c_param_idx),
+        byref(c_job_flag),
+        int_infos,
+        double_infos,
+        char_infos
+    )
+    param_count = int(int_infos[0])
+
+    if param_count <= 0:
+        return []
+
+    c_job_flag = c_int(1)
+
+    def _read_name(index: int) -> str:
+        int_infos.fill(0)
+        double_infos.fill(0.0)
+        name_buf = create_string_buffer(256)
+        c_param_idx_local = c_int(index)
+        dll.getParameterInformation(
+            byref(c_param_idx_local),
+            byref(c_job_flag),
+            int_infos,
+            double_infos,
+            name_buf
+        )
+        return decode_string(name_buf.value).strip()
+
+    # Prefer one-based indexing; fallback to zero-based for legacy compatibility.
+    names_one_based = [_read_name(1 + offset) for offset in range(param_count)]
+    names_zero_based = [_read_name(offset) for offset in range(param_count)]
+
+    if sum(1 for n in names_one_based if n) >= sum(1 for n in names_zero_based if n):
+        return names_one_based
+    return names_zero_based
 
 
 def modify_spline(spline_label: str, spline_data: np.ndarray) -> None:

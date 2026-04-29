@@ -10,7 +10,7 @@ Quick Start:
     ...     model.solve()
     ...     for time_idx, time, states in model.iterate_time_steps():
     ...         fd.update_system(time, states)
-    ...         forces = fd.analysis.get_physical_dof_vector('SUMOFALLFORCES')
+    ...         forces = fd.analysis.get_force_vector('SUMOFALLFORCES')
 
 Main Classes:
     - Model: High-level interface for simulations
@@ -29,6 +29,9 @@ from .models import Model, ModelInfo
 from . import _core as core
 from . import analysis
 from .analysis import MBS_SysMat_slots
+from .analysis import ModelRelatedMatrixBuffer
+from .analysis import ForceVectorBuffer, ConstraintVectorBuffer
+from .analysis import ForceParameterDerivativeMatrixBuffer
 from . import exceptions
 
 __author__ = "FreeDyn Team"
