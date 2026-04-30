@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    FreeDyn release script: tag, build wheel + sdist, upload to PyPI,
+    FreeDyn release script: tag, build wheel, upload it to PyPI,
     create GitHub Release with bin ZIP artifacts.
 
 .PARAMETER Version
@@ -105,39 +105,32 @@ if ($DryRun) {
 # ---------------------------------------------------------------------------
 # 2. Build
 # ---------------------------------------------------------------------------
-Step "Building wheel and sdist"
+Step "Building wheel"
 if (Test-Path "dist") { Remove-Item "dist" -Recurse -Force }
 
-& $PythonExe -m build --outdir dist
+& $PythonExe -m build --wheel --outdir dist
 if ($LASTEXITCODE -ne 0) { Die "Build failed." }
 
 $wheel = Get-ChildItem dist -Filter "*.whl" | Select-Object -First 1
-$sdist = Get-ChildItem dist -Filter "*.tar.gz" | Select-Object -First 1
 if (-not $wheel) { Die "No wheel found in dist/." }
 Write-Host "  Built: $($wheel.Name)"
-if ($sdist) { Write-Host "  Built: $($sdist.Name)" }
 
 # ---------------------------------------------------------------------------
 # 3. Upload to PyPI
 # ---------------------------------------------------------------------------
 if ($DryRun) {
     Step "PyPI upload (DryRun - skipped)"
-    Write-Host "  Would run: twine check + twine upload to $PyPIRepo" -ForegroundColor Yellow
+    Write-Host "  Would run: twine check + twine upload for $($wheel.Name) to $PyPIRepo" -ForegroundColor Yellow
 } elseif (-not $SkipPyPI) {
     Step "Uploading to $PyPIRepo"
-    $repoUrl = if ($PyPIRepo -eq "testpypi") {
-        "--repository-url https://test.pypi.org/legacy/"
-    } else {
-        "--repository pypi"
-    }
     # twine checks first
-    & $PythonExe -m twine check dist/*
+    & $PythonExe -m twine check $wheel.FullName
     if ($LASTEXITCODE -ne 0) { Die "twine check failed." }
 
     if ($PyPIRepo -eq "testpypi") {
-        & $PythonExe -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+        & $PythonExe -m twine upload --repository-url https://test.pypi.org/legacy/ $wheel.FullName
     } else {
-        & $PythonExe -m twine upload --repository pypi dist/*
+        & $PythonExe -m twine upload --repository pypi $wheel.FullName
     }
     if ($LASTEXITCODE -ne 0) { Die "twine upload failed." }
     Write-Host "  Upload complete."
