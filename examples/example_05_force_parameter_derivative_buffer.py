@@ -11,7 +11,7 @@ Usage:
     python example_05_force_parameter_derivative_buffer.py <model.fds> [param_label_1] [param_label_2] ...
 
 If no model path is provided, the script uses the local bundled model:
-    examples/example_05_assets/single_mass_oscillator/single_mass_oscillator.fds
+    examples/freedyn_files/single_mass_oscillator/single_mass_oscillator.fds
 
 Environment overrides:
     FREEDYN_MODEL_PATH      path to model file
@@ -26,9 +26,9 @@ import numpy as np
 import freedyn as fd
 
 
-DEFAULT_EXAMPLE_05_MODEL = (
+DEFAULT_MODEL = (
     Path(__file__).resolve().parent
-    / "example_05_assets"
+    / "freedyn_files"
     / "single_mass_oscillator"
     / "single_mass_oscillator.fds"
 )
@@ -38,8 +38,8 @@ def resolve_model_path(argv):
     if len(argv) > 1:
         return Path(argv[1])
 
-    if DEFAULT_EXAMPLE_05_MODEL.exists():
-        return DEFAULT_EXAMPLE_05_MODEL
+    if DEFAULT_MODEL.exists():
+        return DEFAULT_MODEL
 
     env_path = os.environ.get("FREEDYN_MODEL_PATH")
     if env_path:
@@ -106,11 +106,9 @@ def main(argv=None):
             for label in parameter_labels:
                 print(f"  - {label}")
 
-            model_info = model.get_info()
             derivative_buffer = fd.analysis.ForceParameterDerivativeMatrixBuffer(
                 parameter_labels,
-                validate_labels=False,
-                num_rows=model_info.num_generalized_coordinates,
+                validate_labels=True,
             )
             row_preview = min(3, derivative_buffer.data.shape[0])
 

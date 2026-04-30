@@ -16,6 +16,7 @@ Usage:
 Environment overrides:
     FREEDYN_MODEL_PATH      path to model file
     FREEDYN_STATUS_OUTPUT   NO|SCREEN|FILE|SCREENANDFILE (default: NO)
+    FREEDYN_RERUN_COUNT     integer number of reruns to execute (default: 1)
     FREEDYN_PARAM_NAME      parameter label for rerun
     FREEDYN_PARAM_VALUE     float value for selected parameter
 """
@@ -45,9 +46,20 @@ def verify_rerun_capabilities():
     return True
 
 
+DEFAULT_MODEL = (
+    Path(__file__).resolve().parent
+    / "freedyn_files"
+    / "single_mass_oscillator"
+    / "single_mass_oscillator.fds"
+)
+
+
 def resolve_model_path(argv):
     if len(argv) > 1:
         return Path(argv[1])
+
+    if DEFAULT_MODEL.exists():
+        return DEFAULT_MODEL
 
     env_path = os.environ.get("FREEDYN_MODEL_PATH")
     if env_path:
@@ -77,6 +89,20 @@ def resolve_parameter_override(argv):
         return None, None
 
     return param_name, float(param_value)
+
+
+def resolve_rerun_count(argv):
+    # Priority: argv[4] > env var > default
+    if len(argv) > 4:
+        raw = argv[4]
+    else:
+        raw = os.environ.get("FREEDYN_RERUN_COUNT", "1")
+
+    rerun_count = int(raw)
+    if rerun_count < 1:
+        raise ValueError("Rerun count must be >= 1")
+
+    return rerun_count
 
 
 def solve_and_collect_summary(model):
@@ -118,6 +144,13 @@ def main(argv=None):
         return
 
     status_output = os.environ.get("FREEDYN_STATUS_OUTPUT", "NO")
+    try:
+        rerun_count = resolve_rerun_count(argv)
+    except ValueError as exc:
+        print(f"ERROR: Invalid rerun count: {exc}")
+        print("Set FREEDYN_RERUN_COUNT to an integer >= 1 or pass it as argv[4].")
+        return
+
     param_name, param_value = resolve_parameter_override(argv)
 
     print("Initializing FreeDyn...")
@@ -129,6 +162,7 @@ def main(argv=None):
     try:
         with fd.Model(model_path, status_output=status_output) as model:
             print(f"Model loaded: {model_path}")
+            print(f"Configured rerun count: {rerun_count}")
 
             baseline = solve_and_collect_summary(model)
             print_summary("Baseline run", baseline)
@@ -140,16 +174,18 @@ def main(argv=None):
                 print("\nNo parameter override provided.")
                 print("Rerun will still execute using reset_for_rerun() for workflow demonstration.")
 
-            print("Resetting active model for rerun...")
-            model.reset_for_rerun()
+            last_rerun = None
+            for rerun_idx in range(1, rerun_count + 1):
+                print(f"\nResetting active model for rerun {rerun_idx}/{rerun_count}...")
+                model.reset_for_rerun()
 
-            rerun = solve_and_collect_summary(model)
-            print_summary("Rerun", rerun)
+                last_rerun = solve_and_collect_summary(model)
+                print_summary(f"Rerun {rerun_idx}", last_rerun)
 
-            dq = rerun["final_q0"] - baseline["final_q0"]
-            print("\nComparison:")
+            dq = last_rerun["final_q0"] - baseline["final_q0"]
+            print("\nComparison (last rerun vs baseline):")
             print(f"  delta final_Q[0] = {dq:.6e}")
-            print(f"  delta steps      = {rerun['n_steps'] - baseline['n_steps']}")
+            print(f"  delta steps      = {last_rerun['n_steps'] - baseline['n_steps']}")
 
     except fd.exceptions.FreeDynError as exc:
         print(f"ERROR: {exc}")

@@ -13,7 +13,7 @@ class ModelVectorBuffer:
 
     Args:
         vector_symbol: C-interface vector identifier string.
-        vector_length: Length of the target vector.
+        model_info_key: Key into get_model_info() that gives the vector length.
         dll_function_name: Name of the DLL function used to fill the vector.
     """
 
@@ -26,8 +26,10 @@ class ModelVectorBuffer:
         "vector_label",
     ]
 
-    def __init__(self, vector_symbol: str, vector_length: int, dll_function_name: str):
+    def __init__(self, vector_symbol: str, model_info_key: str, dll_function_name: str):
         self.dll = _core.get_dll()
+        info = _core.get_model_info()
+        vector_length = info[model_info_key]
         self.vector_label = vector_symbol
         self.c_vector_type = c_char_p(vector_symbol.encode("utf-8"))
         self.data = np.zeros((vector_length, 1), dtype=c_double)
@@ -53,10 +55,9 @@ class ForceVectorBuffer(ModelVectorBuffer):
     __slots__ = ()
 
     def __init__(self, vector_symbol: str):
-        info = _core.get_model_info()
         super().__init__(
             vector_symbol=vector_symbol,
-            vector_length=info["numGeneralizedCoordinates"],
+            model_info_key="numGeneralizedCoordinates",
             dll_function_name="getForceVector",
         )
 
@@ -67,10 +68,9 @@ class ConstraintVectorBuffer(ModelVectorBuffer):
     __slots__ = ()
 
     def __init__(self, vector_symbol: str):
-        info = _core.get_model_info()
         super().__init__(
             vector_symbol=vector_symbol,
-            vector_length=info["numLagrangeMultipliers"],
+            model_info_key="numLagrangeMultipliers",
             dll_function_name="getConstraintVector",
         )
 
@@ -92,7 +92,7 @@ class ForceParameterDerivativeMatrixBuffer:
     # Keep this class dict-backed. A slots-based layout showed unstable behavior
     # in some Python 3.13 + ctypes runs when creating this buffer repeatedly.
 
-    def __init__(self, parameter_labels, validate_labels: bool = True, num_rows: int | None = None):
+    def __init__(self, parameter_labels, validate_labels: bool = True):
         labels = list(parameter_labels)
         if not labels:
             raise ParameterError("At least one parameter label is required")
@@ -104,11 +104,8 @@ class ForceParameterDerivativeMatrixBuffer:
                 missing_text = ", ".join(missing)
                 raise ParameterError(f"Unknown parameter label(s): {missing_text}")
 
-        if num_rows is None:
-            info = _core.get_model_info()
-            self.num_rows = info["numGeneralizedCoordinates"]
-        else:
-            self.num_rows = int(num_rows)
+        info = _core.get_model_info()
+        self.num_rows = info["numGeneralizedCoordinates"]
         self.dll = _core.get_dll()
         self.parameter_labels = labels
         self.data = np.zeros((self.num_rows, len(labels)), dtype=c_double)

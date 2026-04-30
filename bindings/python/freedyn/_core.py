@@ -17,6 +17,7 @@ from ._ctypes_utils import encode_string, decode_string, check_success, create_e
 
 
 DEFAULT_DLL_NAMES = ("freedyn.dll", "FDCI_Dll.dll")
+DEFAULT_DLL_NAMES_MT = ("freedyn_mt.dll",)
 
 
 # Global DLL instance
@@ -72,20 +73,27 @@ def initialize(dll_path: Optional[str] = None) -> None:
         candidates.append(dll_path)
     else:
         # Search locations:
-        #   1) package bin/  (inside installed wheel)
-        #   2) top-level bin/x64_MD/  (repo / extracted release)
-        #   3) PATH
+        #   default:    package bin/  — MD DLLs via editable/wheel install
+        #   MT override: top-level bin/x64_MT/ first, then package bin/ as fallback
+        #   always:     PATH fallback (bare DLL names)
         package_bin = os.path.abspath(os.path.join(os.path.dirname(__file__), 'bin'))
-        repo_bin = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'bin', 'x64_MD'))
 
-        search_dirs = [d for d in (package_bin, repo_bin) if os.path.isdir(d)]
+        if os.environ.get("FREEDYN_RUNTIME", "").upper() == "MT":
+            repo_bin_mt = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), '..', '..', '..', 'bin', 'x64_MT')
+            )
+            search_dirs = [d for d in (repo_bin_mt, package_bin) if os.path.isdir(d)]
+            dll_names = DEFAULT_DLL_NAMES_MT
+        else:
+            search_dirs = [d for d in (package_bin,) if os.path.isdir(d)]
+            dll_names = DEFAULT_DLL_NAMES
 
         for bin_dir in search_dirs:
             current_path = os.environ.get('PATH', '')
             if bin_dir not in current_path:
                 os.environ['PATH'] = f"{bin_dir};{current_path}"
 
-            for name in DEFAULT_DLL_NAMES:
+            for name in dll_names:
                 candidate = os.path.join(bin_dir, name)
                 if os.path.exists(candidate):
                     candidates.append(candidate)

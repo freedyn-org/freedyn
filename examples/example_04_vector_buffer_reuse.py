@@ -23,9 +23,20 @@ import numpy as np
 import freedyn as fd
 
 
+DEFAULT_MODEL = (
+    Path(__file__).resolve().parent
+    / "freedyn_files"
+    / "single_mass_oscillator"
+    / "single_mass_oscillator.fds"
+)
+
+
 def resolve_model_path(argv):
     if len(argv) > 1:
         return Path(argv[1])
+
+    if DEFAULT_MODEL.exists():
+        return DEFAULT_MODEL
 
     env_path = os.environ.get("FREEDYN_MODEL_PATH")
     if env_path:

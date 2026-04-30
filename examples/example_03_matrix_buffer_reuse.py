@@ -23,9 +23,20 @@ import numpy as np
 import freedyn as fd
 
 
+DEFAULT_MODEL = (
+    Path(__file__).resolve().parent
+    / "freedyn_files"
+    / "single_mass_oscillator"
+    / "single_mass_oscillator.fds"
+)
+
+
 def resolve_model_path(argv):
     if len(argv) > 1:
         return Path(argv[1])
+
+    if DEFAULT_MODEL.exists():
+        return DEFAULT_MODEL
 
     env_path = os.environ.get("FREEDYN_MODEL_PATH")
     if env_path:
@@ -43,10 +54,10 @@ def resolve_model_path(argv):
 
 
 def build_mass_matrix_index():
-    matrix_ids = np.array([fd.analysis.MATRIX_TYPES["MASS"],fd.analysis.MATRIX_TYPES["MASS"]], dtype=np.int32)
-    row_pos = np.array([0,0], dtype=np.int32)
-    col_pos = np.array([0,1], dtype=np.int32)
-    scales = np.array([1.0,1.0], dtype=np.float64)
+    matrix_ids = np.array([fd.analysis.MATRIX_TYPES["MASS"], fd.analysis.MATRIX_TYPES["MASS"]], dtype=np.int32)
+    row_pos = np.array([0, 0], dtype=np.int32)
+    col_pos = np.array([0, 1], dtype=np.int32)
+    scales = np.array([1.0, 1.0], dtype=np.float64)
     return fd.analysis.create_matrix(matrix_ids, row_pos, col_pos, scales)
 
 
