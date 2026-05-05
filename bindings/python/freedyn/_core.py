@@ -601,6 +601,28 @@ def update_system_at_time_index(time_index: int) -> None:
     update_system(time, states)
 
 
+def update_jacobian() -> None:
+    """Recompute Jacobian matrices at the current cached system state.
+
+    Uses the state/time cached by the most recent successful call to
+    update_system() or update_system_at_time_index(). Does not alter
+    the cached state.
+
+    Raises:
+        StateError: If the DLL does not support this operation or it fails.
+    """
+    dll = get_dll()
+
+    if not hasattr(dll, "updateJacobian"):
+        raise StateError("updateJacobian is not available in DLL")
+
+    c_success = c_int(-1)
+    dll.updateJacobian.argtypes = [POINTER(c_int)]
+    dll.updateJacobian(byref(c_success))
+
+    check_success(c_success.value, "Update Jacobian", exception_class=StateError)
+
+
 # ============================================================================
 # Parameters and Measures
 # ============================================================================
@@ -720,9 +742,18 @@ def modify_spline(spline_label: str, spline_data: np.ndarray) -> None:
     """
     dll = get_dll()
     
+    spline_arr = np.asarray(spline_data, dtype=c_double)
+    if spline_arr.ndim != 2 or spline_arr.shape[1] != 2:
+        raise ParameterError("spline_data must be a 2D array with exactly 2 columns: [x_values, y_values]")
+
+    # Column slices from C-ordered 2D arrays are strided and not contiguous.
+    # The C API expects contiguous 1D buffers for iDataX/iDataY.
+    x_values = np.ascontiguousarray(spline_arr[:, 0], dtype=c_double)
+    y_values = np.ascontiguousarray(spline_arr[:, 1], dtype=c_double)
+
     c_success = c_int(-1)
     c_job_flag = c_int(1)  # spline mode
-    c_num_data = c_int(spline_data.shape[0])
+    c_num_data = c_int(x_values.shape[0])
     c_label = encode_string(spline_label)
     c_dummy = c_double(0.0)
     
@@ -737,7 +768,7 @@ def modify_spline(spline_label: str, spline_data: np.ndarray) -> None:
     ]
     dll.modifyDataObject(
         c_label, byref(c_job_flag), c_dummy, byref(c_num_data),
-        spline_data[:, 0], spline_data[:, 1], byref(c_success)
+        x_values, y_values, byref(c_success)
     )
     
     check_success(c_success.value, f"Modify spline {spline_label}", exception_class=ParameterError)

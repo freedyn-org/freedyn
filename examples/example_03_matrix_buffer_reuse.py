@@ -95,11 +95,11 @@ def main(argv=None):
 
             sample_every = max(1, n_steps // 8)
             print(f"\nSampling every {sample_every} step(s):")
-            print("index, time, mass_trace_sparse, mass_trace_dense")
+            print("index, mass_trace_sparse, mass_trace_dense")
 
             for i in range(0, n_steps, sample_every):
-                time_i, states_i = model.get_states_at_time(i)
-                fd.core.update_system(time_i, states_i)
+                model.update_state_at_index(i)
+                model.update_jacobian()
 
                 sparse_buffer.update_from_dll()
                 sparse_buffer.apply_to_cached_matrix()
@@ -111,7 +111,7 @@ def main(argv=None):
                 trace_sparse = float(sparse_buffer.sp_mat.diagonal().sum())
                 trace_dense = float(np.trace(dense_buffer.dense_mat))
 
-                print(f"{i}, {time_i:.6f}, {trace_sparse:.6e}, {trace_dense:.6e}")
+                print(f"{i}, {trace_sparse:.6e}, {trace_dense:.6e}")
 
     except fd.exceptions.FreeDynError as exc:
         print(f"ERROR: {exc}")

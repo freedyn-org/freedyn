@@ -243,7 +243,19 @@ class Model:
             StateError: If restoration fails
         """
         _core.update_system_at_time_index(time_index)
-    
+
+    def update_jacobian(self) -> None:
+        """Recompute Jacobian matrices at the current cached system state.
+
+        Call after update_state() or update_state_at_index() when Jacobian-dependent
+        quantities (e.g. constraint matrices) need to be refreshed without changing
+        the cached state.
+
+        Raises:
+            StateError: If the DLL does not support this operation or it fails.
+        """
+        _core.update_jacobian()
+
     def iterate_time_steps(self):
         """Generator to iterate through all time steps in results.
         

@@ -32,7 +32,7 @@ class ModelVectorBuffer:
         vector_length = info[model_info_key]
         self.vector_label = vector_symbol
         self.c_vector_type = c_char_p(vector_symbol.encode("utf-8"))
-        self.data = np.zeros((vector_length, 1), dtype=c_double)
+        self.data = np.zeros((vector_length, 1), dtype=c_double, order='F')
         self.c_success = c_int(-1)
 
         self.dll_function = getattr(self.dll, dll_function_name)
@@ -108,7 +108,7 @@ class ForceParameterDerivativeMatrixBuffer:
         self.num_rows = info["numGeneralizedCoordinates"]
         self.dll = _core.get_dll()
         self.parameter_labels = labels
-        self.data = np.zeros((self.num_rows, len(labels)), dtype=c_double)
+        self.data = np.zeros((self.num_rows, len(labels)), dtype=c_double, order='F')
         self.c_success = c_int(-1)
 
         self.dll.getForceVector.argtypes = [
