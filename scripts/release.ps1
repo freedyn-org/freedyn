@@ -144,8 +144,8 @@ if ($DryRun) {
 if ($DryRun) {
     Step "GitHub Release (DryRun - skipped)"
     Write-Host "  Would create and upload:" -ForegroundColor Yellow
-    Write-Host "    dist/release_assets/FreeDyn-$Version-win-x64_MD.zip" -ForegroundColor Yellow
-    Write-Host "    dist/release_assets/FreeDyn-$Version-win-x64_MT.zip" -ForegroundColor Yellow
+    Write-Host "    dist/release_assets/FreeDyn-win-x64_MD.zip" -ForegroundColor Yellow
+    Write-Host "    dist/release_assets/FreeDyn-win-x64_MT.zip" -ForegroundColor Yellow
 } elseif (-not $SkipGitHub) {
     Step "Creating GitHub Release $tag"
 
@@ -153,8 +153,8 @@ if ($DryRun) {
     if (Test-Path $releaseAssetsDir) { Remove-Item $releaseAssetsDir -Recurse -Force }
     New-Item -ItemType Directory -Path $releaseAssetsDir | Out-Null
 
-    $mdZip = Join-Path $releaseAssetsDir "FreeDyn-$Version-win-x64_MD.zip"
-    $mtZip = Join-Path $releaseAssetsDir "FreeDyn-$Version-win-x64_MT.zip"
+    $mdZip = Join-Path $releaseAssetsDir "FreeDyn-win-x64_MD.zip"
+    $mtZip = Join-Path $releaseAssetsDir "FreeDyn-win-x64_MT.zip"
 
     if (-not (Test-Path "bin/x64_MD")) { Die "Missing bin/x64_MD folder." }
     if (-not (Test-Path "bin/x64_MT")) { Die "Missing bin/x64_MT folder." }
