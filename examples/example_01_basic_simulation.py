@@ -39,9 +39,8 @@ def resolve_model_path(argv):
     if env_path:
         return Path(env_path)
 
-    # Development convenience: pick first .fds from common local locations.
     candidates = []
-    for root in (Path.cwd(), Path(r"C:/demos_freedyn")):
+    for root in (Path.cwd(),):
         if root.exists():
             candidates.extend(root.rglob("*.fds"))
 

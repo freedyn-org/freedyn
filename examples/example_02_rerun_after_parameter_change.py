@@ -68,7 +68,7 @@ def resolve_model_path(argv):
         return Path(env_path)
 
     candidates = []
-    for root in (Path.cwd(), Path(r"C:/demos_freedyn")):
+    for root in (Path.cwd(),):
         if root.exists():
             candidates.extend(root.rglob("*.fds"))
 
