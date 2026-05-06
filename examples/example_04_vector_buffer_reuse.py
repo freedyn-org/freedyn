@@ -92,8 +92,9 @@ def main(argv=None):
                 print("index, time, force_norm, constraint_norm")
 
             for i in range(0, n_steps, sample_every):
-                time_i, states_i = model.get_states_at_time(i)
-                fd.core.update_system(time_i, states_i)
+                model.fetch_states_at_index(i)
+                model.update_state_at_index(i)
+                time_i = model.t
 
                 force_buffer.update_from_dll()
                 force_norm = float(np.linalg.norm(force_buffer.data))

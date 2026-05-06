@@ -14,11 +14,13 @@ Usage:
     python example_02_rerun_after_parameter_change.py <model.fds> [param_name] [param_value]
 
 Environment overrides:
-    FREEDYN_MODEL_PATH      path to model file
-    FREEDYN_STATUS_OUTPUT   NO|SCREEN|FILE|SCREENANDFILE (default: NO)
-    FREEDYN_RERUN_COUNT     integer number of reruns to execute (default: 1)
-    FREEDYN_PARAM_NAME      parameter label for rerun
-    FREEDYN_PARAM_VALUE     float value for selected parameter
+    FREEDYN_MODEL_PATH        path to model file
+    FREEDYN_STATUS_OUTPUT     NO|SCREEN|FILE|SCREENANDFILE (default: NO)
+    FREEDYN_RERUN_COUNT       integer number of reruns to execute (default: 1)
+    FREEDYN_PARAM_NAME        parameter label for rerun
+    FREEDYN_PARAM_VALUE       float value for selected parameter
+    FREEDYN_RERUN_END_TIMES   comma-separated end times for reruns, e.g. "0.5,1.0,2.0"
+                              omit for full solve; values cycle if fewer than rerun count
 """
 
 import os
@@ -105,9 +107,12 @@ def resolve_rerun_count(argv):
     return rerun_count
 
 
-def solve_and_collect_summary(model):
+def solve_and_collect_summary(model, end_time=None):
     model.compute_initial_conditions()
-    model.solve()
+    if end_time is None:
+        model.solve()
+    else:
+        model.solve_until(end_time)
 
     n_steps = model.get_num_time_steps()
     if n_steps <= 0:
@@ -117,12 +122,12 @@ def solve_and_collect_summary(model):
             "final_q0": 0.0,
         }
 
-    final_time, final_states = model.get_states_at_time(n_steps - 1)
-    final_q0 = float(final_states["Q"][0, 0])
+    model.fetch_states_at_index(n_steps - 1)
+    final_q0 = float(model.Q[0, 0])
 
     return {
         "n_steps": n_steps,
-        "final_time": float(final_time),
+        "final_time": float(model.t),
         "final_q0": final_q0,
     }
 
@@ -132,6 +137,19 @@ def print_summary(label, summary):
     print(f"  steps      = {summary['n_steps']}")
     print(f"  final_time = {summary['final_time']:.6f} s")
     print(f"  final_Q[0] = {summary['final_q0']:.6e}")
+
+
+def resolve_end_times(argv, rerun_count):
+    """Return a list of end times for each rerun, or None for full solve."""
+    raw = os.environ.get("FREEDYN_RERUN_END_TIMES")
+    if len(argv) > 5:
+        raw = argv[5]
+    if raw is None:
+        return [None] * rerun_count
+    # Expect comma-separated floats, e.g. "0.5,1.0,2.0"
+    values = [float(v.strip()) for v in raw.split(",")]
+    # Cycle or truncate to match rerun_count
+    return [values[i % len(values)] for i in range(rerun_count)]
 
 
 def main(argv=None):
@@ -150,6 +168,8 @@ def main(argv=None):
         print(f"ERROR: Invalid rerun count: {exc}")
         print("Set FREEDYN_RERUN_COUNT to an integer >= 1 or pass it as argv[4].")
         return
+
+    end_times = resolve_end_times(argv, rerun_count)
 
     param_name, param_value = resolve_parameter_override(argv)
 
@@ -176,10 +196,12 @@ def main(argv=None):
 
             last_rerun = None
             for rerun_idx in range(1, rerun_count + 1):
-                print(f"\nResetting active model for rerun {rerun_idx}/{rerun_count}...")
+                end_time = end_times[rerun_idx - 1]
+                end_label = f"{end_time:.3f} s" if end_time is not None else "full"
+                print(f"\nResetting active model for rerun {rerun_idx}/{rerun_count} (end_time={end_label})...")
                 model.reset_for_rerun()
 
-                last_rerun = solve_and_collect_summary(model)
+                last_rerun = solve_and_collect_summary(model, end_time=end_time)
                 print_summary(f"Rerun {rerun_idx}", last_rerun)
 
             dq = last_rerun["final_q0"] - baseline["final_q0"]

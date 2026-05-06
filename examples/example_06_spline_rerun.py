@@ -79,12 +79,12 @@ def solve_and_collect_summary(model):
             "final_q0": 0.0,
         }
 
-    final_time, final_states = model.get_states_at_time(n_steps - 1)
-    final_q0 = float(final_states["Q"][0, 0])
+    model.fetch_states_at_index(n_steps - 1)
+    final_q0 = float(model.Q[0, 0])
 
     return {
         "n_steps": n_steps,
-        "final_time": float(final_time),
+        "final_time": float(model.t),
         "final_q0": final_q0,
     }
 

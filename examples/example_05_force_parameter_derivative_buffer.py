@@ -119,8 +119,9 @@ def main(argv=None):
             print("Columns:", ", ".join(parameter_labels))
 
             for i in range(0, n_steps, sample_every):
-                time_i, states_i = model.get_states_at_time(i)
-                fd.core.update_system(time_i, states_i)
+                model.fetch_states_at_index(i)
+                model.update_state_at_index(i)
+                time_i = model.t
 
                 derivative_buffer.update_from_dll()
                 fro_norm = float(np.linalg.norm(derivative_buffer.data))

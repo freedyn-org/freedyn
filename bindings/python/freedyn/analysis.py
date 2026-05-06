@@ -322,6 +322,3 @@ def get_damping_matrix() -> csr_matrix:
 
 # Preferred name
 ModelRelatedMatrixBuffer = ModelMatrixBuffer
-
-# Backward-compatible alias (legacy public name)
-MBS_SysMat_slots = ModelMatrixBuffer

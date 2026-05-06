@@ -81,23 +81,23 @@ def main(argv=None):
 
             sample_every = max(1, total_steps // 20)
             print(f"\nSampled results (every {sample_every} step(s), max ~20 lines):")
-            for idx, time, states in model.iterate_time_steps():
+            for idx in model.iterate_time_steps():
                 if idx % sample_every:
                     continue
-                q0 = states["Q"][0, 0]
-                print(f"  Step {idx:4d}: t={time:8.4f} s, Q[0]={q0:12.6e}")
+                q0 = model.Q[0, 0]
+                print(f"  Step {idx:4d}: t={model.t:8.4f} s, Q[0]={q0:12.6e}")
 
             if total_steps > 0:
                 sample_idx = min(10, total_steps - 1)
-                sample_time, sample_states = model.get_states_at_time(sample_idx)
+                model.fetch_states_at_index(sample_idx)
 
                 # Query functions operate on DLL-cached state, so set it first.
-                fd.core.update_system(sample_time, sample_states)
+                model.update_state_at_index(sample_idx)
                 mass = fd.analysis.get_mass_matrix()
                 f_all = fd.analysis.get_force_vector("SUMOFALLFORCES")
 
                 print("\nAnalysis at sampled state:")
-                print(f"  index={sample_idx}, time={sample_time:.6f} s")
+                print(f"  index={sample_idx}, time={model.t:.6f} s")
                 print(f"  mass matrix shape: {mass.shape}")
                 print(f"  force vector shape: {f_all.shape}")
 

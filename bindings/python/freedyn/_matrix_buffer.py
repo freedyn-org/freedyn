@@ -70,8 +70,8 @@ class ModelMatrixBuffer:
         else:
             dense_mat_rows = np.repeat(np.arange(mat_num_rows), np.diff(row_ind))
             self.flat_idx = dense_mat_rows * mat_num_cols + col_ind
-            self.dense_mat = np.zeros((mat_num_rows, mat_num_cols), order='F')
-            self.dense_mat_flat = self.dense_mat.ravel(order='F')
+            self.dense_mat = np.zeros((mat_num_rows, mat_num_cols), order='C')
+            self.dense_mat_flat = self.dense_mat.ravel(order='C')
             self.sp_mat = None
 
     def set_index(self, new_idx: int) -> None:

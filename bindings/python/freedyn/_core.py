@@ -73,17 +73,26 @@ def initialize(dll_path: Optional[str] = None) -> None:
         candidates.append(dll_path)
     else:
         # Search locations:
-        #   default:    package bin/  — MD DLLs via editable/wheel install
+        #   default:     package bin/  — MD DLLs via editable/wheel install
+        #   MD override: top-level bin/x64_MD/ first, then package bin/ as fallback
         #   MT override: top-level bin/x64_MT/ first, then package bin/ as fallback
-        #   always:     PATH fallback (bare DLL names)
+        #   always:      PATH fallback (bare DLL names)
         package_bin = os.path.abspath(os.path.join(os.path.dirname(__file__), 'bin'))
+        repo_bin_md = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), '..', '..', '..', 'bin', 'x64_MD')
+        )
+        repo_bin_mt = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), '..', '..', '..', 'bin', 'x64_MT')
+        )
 
-        if os.environ.get("FREEDYN_RUNTIME", "").upper() == "MT":
-            repo_bin_mt = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), '..', '..', '..', 'bin', 'x64_MT')
-            )
+        runtime = os.environ.get("FREEDYN_RUNTIME", "").upper()
+
+        if runtime == "MT":
             search_dirs = [d for d in (repo_bin_mt, package_bin) if os.path.isdir(d)]
             dll_names = DEFAULT_DLL_NAMES_MT
+        elif runtime == "MD":
+            search_dirs = [d for d in (repo_bin_md, package_bin) if os.path.isdir(d)]
+            dll_names = DEFAULT_DLL_NAMES
         else:
             search_dirs = [d for d in (package_bin,) if os.path.isdir(d)]
             dll_names = DEFAULT_DLL_NAMES

@@ -5,7 +5,7 @@ This is the main user-facing API for FreeDyn simulations. Use the Model
 class for most applications.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from pathlib import Path
 import numpy as np
 
@@ -25,7 +25,22 @@ class ModelInfo:
         num_forces: Number of forces
         num_measures: Number of measures
     """
-    
+
+    __slots__ = [
+        "num_generalized_coordinates",
+        "num_lagrange_multipliers",
+        "num_body_states",
+        "num_bodies",
+        "num_ext_constraints",
+        "num_forces",
+        "num_measures",
+        "num_all_dofs",
+        "num_phy_dofs",
+        "num_int_dof",
+        "num_ext_dof",
+        "num_ext_constr",
+    ]
+
     def __init__(self, info_dict: Dict[str, int]):
         """Initialize from dictionary (typically from _core.get_model_info())."""
         self.num_generalized_coordinates = info_dict["numGeneralizedCoordinates"]
@@ -61,8 +76,21 @@ class Model:
         >>> fd.initialize()
         >>> with Model('model.fds') as model:
         ...     model.solve()
-        ...     states = model.get_states_at_time(0)
+        ...     model.fetch_states_at_index(0)
+        ...     print(model.t, model.Q)
     """
+
+    __slots__ = [
+        "fds_file_path",
+        "model_index",
+        "_info",
+        "_t",
+        "_Q",
+        "_Qd",
+        "_Qdd",
+        "_L",
+        "_is_deleted",
+    ]
     
     def __init__(self, fds_file_path: str, status_output: str = 'SCREEN'):
         """Initialize a FreeDyn model.
@@ -78,7 +106,14 @@ class Model:
         self.fds_file_path = Path(fds_file_path)
         self.model_index = _core.create_model(str(self.fds_file_path), status_output)
         _core.set_model_active(self.model_index)
-        self._info: Optional[ModelInfo] = None
+        self._info = ModelInfo(_core.get_model_info())
+        n_q = self._info.num_generalized_coordinates
+        n_l = self._info.num_lagrange_multipliers
+        self._t: float = 0.0
+        self._Q: np.ndarray = np.zeros((n_q, 1))
+        self._Qd: np.ndarray = np.zeros((n_q, 1))
+        self._Qdd: np.ndarray = np.zeros((n_q, 1))
+        self._L: np.ndarray = np.zeros((n_l, 1))
         self._is_deleted = False
     
     def __enter__(self):
@@ -117,9 +152,6 @@ class Model:
         Returns:
             ModelInfo object with model statistics
         """
-        if self._info is None:
-            info_dict = _core.get_model_info()
-            self._info = ModelInfo(info_dict)
         return self._info
     
     # ========================================================================
@@ -141,7 +173,7 @@ class Model:
             SimulationError: If solving fails
         """
         _core.solve_equations_of_motion()
-    
+
     def solve_until(self, end_time: float) -> None:
         """Solve simulation until specified time.
         
@@ -176,36 +208,46 @@ class Model:
     # State Management
     # ========================================================================
     
-    def create_state_vectors(self) -> Dict[str, np.ndarray]:
-        """Create state vector container.
-        
-        Returns:
-            Dictionary with keys 'Q', 'Qd', 'Qdd', 'L' containing numpy arrays
-        """
-        info = self.get_info()
-        
-        return {
-            "Q": np.zeros((info.num_generalized_coordinates, 1)),
-            "Qd": np.zeros((info.num_generalized_coordinates, 1)),
-            "Qdd": np.zeros((info.num_generalized_coordinates, 1)),
-            "L": np.zeros((info.num_lagrange_multipliers, 1))
-        }
-    
-    def get_states_at_time(self, time_index: int) -> Tuple[float, Dict[str, np.ndarray]]:
-        """Get complete state vectors at specific time index.
-        
+    def fetch_states_at_index(self, time_index: int) -> None:
+        """Fetch state vectors from C-API by index and store as model members.
+
+        After calling this, access the results via the properties t, Q, Qd, Qdd, L.
+
         Args:
             time_index: Time step index (0-based)
-            
-        Returns:
-            Tuple of (time_value, states_dict) where states_dict contains Q, Qd, Qdd, L
-            
+
         Raises:
             StateError: If retrieval fails
         """
-        states = self.create_state_vectors()
-        time = _core.get_states_at_time_index_full(time_index, states)
-        return time, states
+        _states = {"Q": self._Q, "Qd": self._Qd, "Qdd": self._Qdd, "L": self._L}
+        self._t = _core.get_states_at_time_index_full(time_index, _states)
+
+    @property
+    def t(self) -> float:
+        """Time value of last fetch_states_at_index call."""
+        return self._t
+
+    @property
+    def Q(self) -> np.ndarray:
+        """Generalized coordinates of last fetch_states_at_index call."""
+        return self._Q
+
+    @property
+    def Qd(self) -> np.ndarray:
+        """Generalized velocities of last fetch_states_at_index call."""
+        return self._Qd
+
+    @property
+    def Qdd(self) -> np.ndarray:
+        """Generalized accelerations of last fetch_states_at_index call."""
+        return self._Qdd
+
+    @property
+    def L(self) -> np.ndarray:
+        """Lagrange multipliers of last fetch_states_at_index call."""
+        return self._L
+
+
 
     def get_time_at_index(self, time_index: int) -> float:
         """Get only the simulation time value at a specific time index.
@@ -258,14 +300,17 @@ class Model:
 
     def iterate_time_steps(self):
         """Generator to iterate through all time steps in results.
-        
+
+        Fetches each time step via :meth:`fetch_states_at_index` and yields the
+        time index. Access t, Q, Qd, Qdd, L on the model directly after each step.
+
         Yields:
-            Tuple of (time_index, time_value, states_dict)
+            time_index (int) for each time step
         """
         num_steps = self.get_num_time_steps()
         for i in range(num_steps):
-            time, states = self.get_states_at_time(i)
-            yield i, time, states
+            self.fetch_states_at_index(i)
+            yield i
     
     # ========================================================================
     # Parameters and Measures
