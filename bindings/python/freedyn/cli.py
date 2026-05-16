@@ -41,11 +41,11 @@ def main(argv=None):
             print(f"Simulation complete with {steps} time steps.")
 
             print("Sample results (first 5 steps):")
-            for idx, time, states in model.iterate_time_steps():
+            for idx in model.iterate_time_steps():
                 if idx >= 5:
                     break
-                q0 = states["Q"][0, 0]
-                print(f"  Step {idx:3d}: t={time:8.4f} s, Q[0]={q0:12.6e}")
+                q0 = model.Q[0, 0]
+                print(f"  Step {idx:3d}: t={model.t:8.4f} s, Q[0]={q0:12.6e}")
             if steps > 5:
                 print(f"  ... (showing 5 of {steps} steps)")
 
