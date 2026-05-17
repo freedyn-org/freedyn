@@ -188,7 +188,7 @@ FDCIDLLMode modifyDataObject(char iDataObjectLabel[],
 
 /// Get parameter information
 /**
-* @param[in]  iParameterIndex  int*    Index of the parameter (zero-based)
+* @param[in]  iParameterIndex  int*    Index of the parameter (one-based)
 * @param[in]  iJobFlag         int*    1 = get parameter label (oCharInfos, min 256), 2 = get count (oIntInfos)
 * @param[out] oIntInfos        int*    Integer information
 * @param[out] oDoubleInfos     double* Double information (reserved)
