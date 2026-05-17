@@ -19,9 +19,9 @@ Download the latest release as a ZIP archive from **[GitHub Releases](https://gi
 
 ## Documentation
 
-- [Getting Started](docs/GETTING_STARTED.md) - Installation and first steps (GUI & Python)
-- [C API](docs/C_API.md) - Canonical C header location and ABI conventions
-- [Examples](examples/) - Python code examples and tutorials
+- [Getting Started](https://github.com/freedyn-org/freedyn/blob/main/docs/GETTING_STARTED.md) - Installation and first steps (GUI & Python)
+- [C API](https://github.com/freedyn-org/freedyn/blob/main/docs/C_API.md) - Canonical C header location and ABI conventions
+- [Examples](https://github.com/freedyn-org/freedyn/tree/main/examples/) - Python code examples and tutorials
 - [Release Notes](#release-notes) - What's new
 
 ## Quick Start
@@ -58,7 +58,7 @@ For automated simulations, custom analysis, and batch processing:
          print(idx, time, states["Q"][0, 0])
    ```
 
-More detail: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
+More detail: [docs/GETTING_STARTED.md](https://github.com/freedyn-org/freedyn/blob/main/docs/GETTING_STARTED.md)
 
 ## Features
 
@@ -110,13 +110,13 @@ The Python bindings (source code in this repository) are open source.
 The binary components (`freedyn.dll`, `Freedyn_GUI.exe`, etc.) are distributed
 as pre-built binaries via [GitHub Releases](https://github.com/freedyn-org/freedyn/releases).
 
-See [LICENSE](LICENSE) for details.
+See [LICENSE](https://github.com/freedyn-org/freedyn/blob/main/LICENSE) for details.
 
 ## Support & Issues
 
 - **GitHub Issues**: [Report bugs](https://github.com/freedyn-org/freedyn/issues)
-- **Documentation**: See [docs/](docs/) folder
-- **Examples**: See [examples/](examples/) folder
+- **Documentation**: See [docs/](https://github.com/freedyn-org/freedyn/tree/main/docs/) folder
+- **Examples**: See [examples/](https://github.com/freedyn-org/freedyn/tree/main/examples/) folder
 
 ## Release Notes
 
@@ -157,4 +157,4 @@ If you use FreeDyn in your research, please cite:
 ---
 
 **Repository**: https://github.com/freedyn-org/freedyn  
-**Version**: See [_version.py](bindings/python/freedyn/_version.py) for current version
+**Version**: See [_version.py](https://github.com/freedyn-org/freedyn/blob/main/bindings/python/freedyn/_version.py) for current version
