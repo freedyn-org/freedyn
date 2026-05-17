@@ -25,7 +25,8 @@ param(
     [string]$PyPIRepo = "testpypi",
     [switch]$SkipPyPI,
     [switch]$SkipGitHub,
-    [switch]$DryRun   # Build only - no tag, no upload, no GitHub Release
+    [switch]$DryRun,   # Build only - no tag, no upload, no GitHub Release
+    [string]$ReleaseNotesFile = ""   # Optional path to a release notes file
 )
 
 Set-StrictMode -Version Latest
@@ -164,13 +165,16 @@ if ($DryRun) {
 
     $artifacts = @($mdZip, $mtZip)
 
-    $releaseNotes = "Release $tag`n`nSee GETTING_STARTED.md for usage."
+    if ($ReleaseNotesFile -and (Test-Path $ReleaseNotesFile)) {
+        $notesArgs = @("--notes-file", (Resolve-Path $ReleaseNotesFile).Path)
+    } else {
+        $notesArgs = @("--notes", "Release $tag`n`nSee GETTING_STARTED.md for usage.")
+    }
 
     $ghArgs = @(
         "release", "create", $tag,
-        "--title", "FreeDyn $tag",
-        "--notes", $releaseNotes
-    ) + $artifacts
+        "--title", "FreeDyn $tag"
+    ) + $notesArgs + $artifacts
 
     & gh @ghArgs
     if ($LASTEXITCODE -ne 0) { Die "GitHub release creation failed." }
