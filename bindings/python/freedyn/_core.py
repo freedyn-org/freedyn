@@ -7,7 +7,7 @@ use the higher-level API in models.py instead.
 Internal module - not meant for direct use by end users.
 """
 
-from ctypes import CDLL, Structure, c_int, c_double, c_char, c_char_p, create_string_buffer, byref, POINTER
+from ctypes import CDLL, c_int, c_double, c_char, c_char_p, create_string_buffer, byref, POINTER
 from typing import Optional, Dict
 import numpy as np
 import os
@@ -16,7 +16,7 @@ from .exceptions import DLLLoadError, ModelError, SimulationError, ParameterErro
 from ._ctypes_utils import encode_string, decode_string, check_success, create_error_buffer
 
 
-DEFAULT_DLL_NAMES = ("freedyn.dll", "FDCI_Dll.dll")
+DEFAULT_DLL_NAMES = ("freedyn.dll",)
 DEFAULT_DLL_NAMES_MT = ("freedyn_mt.dll",)
 
 
@@ -24,34 +24,13 @@ DEFAULT_DLL_NAMES_MT = ("freedyn_mt.dll",)
 _dll: Optional[CDLL] = None
 
 
-class ModelInfo(Structure):
-    """C structure matching FreeDyn's model information struct."""
-    _fields_ = [
-        ('numAllDofs', c_int),
-        ('numPhyDofs', c_int),
-        ('numIntDof', c_int),
-        ('numExtDof', c_int),
-        ('numBodies', c_int),
-        ('numExtConstr', c_int),
-        ('numForces', c_int),
-        ('numMeasures', c_int)
-    ]
-
-
-def _resolve_symbol(dll: CDLL, *names: str):
-    """Resolve first available symbol name from the DLL."""
-    for name in names:
-        if hasattr(dll, name):
-            return getattr(dll, name)
-    raise AttributeError(f"None of these symbols found: {', '.join(names)}")
-
 
 def initialize(dll_path: Optional[str] = None) -> None:
     """Initialize FreeDyn API by loading the solver DLL (freedyn.dll).
     
     Args:
         dll_path: Optional path to the DLL. If None, searches for freedyn.dll
-            (preferred) then FDCI_Dll.dll for backwards compatibility.
+            in the package bin directory, then falls back to PATH resolution.
         
     Raises:
         DLLLoadError: If DLL cannot be found or loaded.
@@ -222,13 +201,8 @@ def set_model_active(model_index: int) -> None:
     c_model_idx = c_int(model_index)
     c_success = c_int(-1)
     
-    try:
-        set_active = _resolve_symbol(dll, "setModelAsActive", "setModelAsActiv")
-    except AttributeError as exc:
-        raise ModelError(str(exc)) from exc
-
-    set_active.argtypes = [POINTER(c_int), POINTER(c_int)]
-    set_active(byref(c_model_idx), byref(c_success))
+    dll.setModelAsActive.argtypes = [POINTER(c_int), POINTER(c_int)]
+    dll.setModelAsActive(byref(c_model_idx), byref(c_success))
     
     check_success(c_success.value, f"Set model {model_index} active", exception_class=ModelError)
 
@@ -263,68 +237,41 @@ def get_model_info() -> Dict[str, int]:
                             numBodies, numExtConstr, numForces, numMeasures
     """
     dll = get_dll()
-    
-    # New API (2026+): getModelDofInfo
-    if hasattr(dll, "getModelDofInfo"):
-        n_q = c_int(0)
-        n_l = c_int(0)
-        n_body_states = c_int(0)
-        n_bodies = c_int(0)
-        n_ext_constr = c_int(0)
-        n_forces = c_int(0)
-        n_measures = c_int(0)
-        c_success = c_int(-1)
 
-        dll.getModelDofInfo.argtypes = [
-            POINTER(c_int), POINTER(c_int), POINTER(c_int),
-            POINTER(c_int), POINTER(c_int), POINTER(c_int),
-            POINTER(c_int), POINTER(c_int)
-        ]
-        dll.getModelDofInfo(
-            byref(n_q), byref(n_l), byref(n_body_states),
-            byref(n_bodies), byref(n_ext_constr), byref(n_forces),
-            byref(n_measures), byref(c_success)
-        )
-        check_success(c_success.value, "Get model DOF info", exception_class=ModelError)
+    n_q = c_int(0)
+    n_l = c_int(0)
+    n_body_states = c_int(0)
+    n_bodies = c_int(0)
+    n_ext_constr = c_int(0)
+    n_forces = c_int(0)
+    n_measures = c_int(0)
+    c_success = c_int(-1)
 
-        return {
-            # New keys
-            "numGeneralizedCoordinates": n_q.value,
-            "numLagrangeMultipliers": n_l.value,
-            "numBodyStates": n_body_states.value,
-            "numBodies": n_bodies.value,
-            "numExtConstraints": n_ext_constr.value,
-            "numForces": n_forces.value,
-            "numMeasures": n_measures.value,
-            # Backward-compatible keys expected by current high-level code
-            "numAllDofs": n_q.value + n_l.value,
-            "numPhyDofs": n_q.value,
-            "numIntDof": 0,
-            "numExtDof": n_l.value,
-            "numExtConstr": n_ext_constr.value,
-        }
-
-    # Legacy API fallback
-    model_info = ModelInfo()
-    if not hasattr(dll, "getModelInfoStruct"):
-        raise ModelError("Neither getModelDofInfo nor getModelInfoStruct is available in DLL")
-
-    dll.getModelInfoStruct.argtypes = [POINTER(ModelInfo)]
-    dll.getModelInfoStruct(model_info)
+    dll.getModelDofInfo.argtypes = [
+        POINTER(c_int), POINTER(c_int), POINTER(c_int),
+        POINTER(c_int), POINTER(c_int), POINTER(c_int),
+        POINTER(c_int), POINTER(c_int)
+    ]
+    dll.getModelDofInfo(
+        byref(n_q), byref(n_l), byref(n_body_states),
+        byref(n_bodies), byref(n_ext_constr), byref(n_forces),
+        byref(n_measures), byref(c_success)
+    )
+    check_success(c_success.value, "Get model DOF info", exception_class=ModelError)
 
     return {
-        "numAllDofs": model_info.numAllDofs,
-        "numPhyDofs": model_info.numPhyDofs,
-        "numIntDof": model_info.numIntDof,
-        "numExtDof": model_info.numExtDof,
-        "numBodies": model_info.numBodies,
-        "numExtConstr": model_info.numExtConstr,
-        "numExtConstraints": model_info.numExtConstr,
-        "numForces": model_info.numForces,
-        "numMeasures": model_info.numMeasures,
-        "numGeneralizedCoordinates": model_info.numPhyDofs,
-        "numLagrangeMultipliers": model_info.numIntDof + model_info.numExtDof,
-        "numBodyStates": model_info.numPhyDofs,
+        "numGeneralizedCoordinates": n_q.value,
+        "numLagrangeMultipliers": n_l.value,
+        "numBodyStates": n_body_states.value,
+        "numBodies": n_bodies.value,
+        "numExtConstraints": n_ext_constr.value,
+        "numForces": n_forces.value,
+        "numMeasures": n_measures.value,
+        "numAllDofs": n_q.value + n_l.value,
+        "numPhyDofs": n_q.value,
+        "numIntDof": 0,
+        "numExtDof": n_l.value,
+        "numExtConstr": n_ext_constr.value,
     }
 
 
@@ -388,39 +335,16 @@ def get_num_time_steps() -> int:
     dll = get_dll()
     
     c_num_steps = c_int(-1)
-
-    # New API signature includes oSuccess
-    if hasattr(dll, "getNumberOfSolutionTimeSteps"):
-        c_success = c_int(-1)
-        dll.getNumberOfSolutionTimeSteps.argtypes = [POINTER(c_int), POINTER(c_int)]
-        try:
-            dll.getNumberOfSolutionTimeSteps(byref(c_num_steps), byref(c_success))
-            check_success(c_success.value, "Get number of solution time steps", exception_class=SimulationError)
-            return c_num_steps.value
-        except TypeError:
-            # Fallback for legacy one-argument signature
-            pass
-
-    dll.getNumberOfSolutionTimeSteps.argtypes = [POINTER(c_int)]
-    dll.getNumberOfSolutionTimeSteps(byref(c_num_steps))
+    c_success = c_int(-1)
+    dll.getNumberOfSolutionTimeSteps.argtypes = [POINTER(c_int), POINTER(c_int)]
+    dll.getNumberOfSolutionTimeSteps(byref(c_num_steps), byref(c_success))
+    check_success(c_success.value, "Get number of solution time steps", exception_class=SimulationError)
     return c_num_steps.value
 
 
 # ============================================================================
 # States and Results
 # ============================================================================
-
-def _create_state_vectors_for_active_model() -> Dict[str, np.ndarray]:
-    """Create state vector arrays for the currently active model."""
-    info = get_model_info()
-    n_q = info["numGeneralizedCoordinates"]
-    n_l = info["numLagrangeMultipliers"]
-    return {
-        "Q": np.zeros((n_q, 1), dtype=c_double),
-        "Qd": np.zeros((n_q, 1), dtype=c_double),
-        "Qdd": np.zeros((n_q, 1), dtype=c_double),
-        "L": np.zeros((n_l, 1), dtype=c_double),
-    }
 
 def get_states_at_time_index(time_index: int, states: Dict[str, np.ndarray]) -> float:
     """Get states at specific time index from simulation results.
@@ -440,36 +364,25 @@ def get_states_at_time_index(time_index: int, states: Dict[str, np.ndarray]) -> 
     c_time_idx = c_int(time_index + 1)  # C interface uses 1-based indexing
     c_time = c_double(0.0)
 
-    # New API: get generalized states and keep only Q in provided container
-    if hasattr(dll, "getGeneralizedStatesAtTimeIndex"):
-        info = get_model_info()
-        qd = np.zeros_like(states["Q"])
-        qdd = np.zeros_like(states["Q"])
-        l = np.zeros((info["numLagrangeMultipliers"], 1), dtype=c_double)
-        c_success = c_int(-1)
+    info = get_model_info()
+    qd = np.zeros_like(states["Q"])
+    qdd = np.zeros_like(states["Q"])
+    l = np.zeros((info["numLagrangeMultipliers"], 1), dtype=c_double)
+    c_success = c_int(-1)
 
-        dll.getGeneralizedStatesAtTimeIndex.argtypes = [
-            POINTER(c_int), POINTER(c_double),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-            POINTER(c_int)
-        ]
-        dll.getGeneralizedStatesAtTimeIndex(
-            byref(c_time_idx), byref(c_time),
-            states["Q"], qd, qdd, l, byref(c_success)
-        )
-        check_success(c_success.value, f"Get states at time index {time_index}", exception_class=StateError)
-        return c_time.value
-
-    # Legacy API fallback
-    dll.getStatesViaTimeIndexOfSolverResult.argtypes = [
-        POINTER(c_int),
-        POINTER(c_double),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2)
+    dll.getGeneralizedStatesAtTimeIndex.argtypes = [
+        POINTER(c_int), POINTER(c_double),
+        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
+        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
+        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
+        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
+        POINTER(c_int)
     ]
-    dll.getStatesViaTimeIndexOfSolverResult(byref(c_time_idx), byref(c_time), states["Q"])
+    dll.getGeneralizedStatesAtTimeIndex(
+        byref(c_time_idx), byref(c_time),
+        states["Q"], qd, qdd, l, byref(c_success)
+    )
+    check_success(c_success.value, f"Get states at time index {time_index}", exception_class=StateError)
     return c_time.value
 
 
@@ -490,38 +403,22 @@ def get_states_at_time_index_full(time_index: int, states: Dict[str, np.ndarray]
     
     c_time_idx = c_int(time_index + 1)
     c_time = c_double(0.0)
+    c_success = c_int(-1)
 
-    if hasattr(dll, "getGeneralizedStatesAtTimeIndex"):
-        c_success = c_int(-1)
-        dll.getGeneralizedStatesAtTimeIndex.argtypes = [
-            POINTER(c_int), POINTER(c_double),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-            POINTER(c_int)
-        ]
-        dll.getGeneralizedStatesAtTimeIndex(
-            byref(c_time_idx), byref(c_time),
-            states["Q"], states["Qd"], states["Qdd"], states["L"],
-            byref(c_success)
-        )
-        check_success(c_success.value, f"Get full states at time index {time_index}", exception_class=StateError)
-        return c_time.value
-
-    # Legacy fallback
-    dll.getStatesViaTimeIndexOfSolverResult2.argtypes = [
-        POINTER(c_int),
-        POINTER(c_double),
+    dll.getGeneralizedStatesAtTimeIndex.argtypes = [
+        POINTER(c_int), POINTER(c_double),
         np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
         np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
         np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2)
+        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
+        POINTER(c_int)
     ]
-    dll.getStatesViaTimeIndexOfSolverResult2(
+    dll.getGeneralizedStatesAtTimeIndex(
         byref(c_time_idx), byref(c_time),
-        states["Q"], states["Qd"], states["Qdd"], states["L"]
+        states["Q"], states["Qd"], states["Qdd"], states["L"],
+        byref(c_success)
     )
+    check_success(c_success.value, f"Get full states at time index {time_index}", exception_class=StateError)
     return c_time.value
 
 
@@ -541,16 +438,12 @@ def get_time_at_index(time_index: int) -> float:
 
     c_time_idx = c_int(time_index + 1)
     c_time = c_double(0.0)
+    c_success = c_int(-1)
 
-    if hasattr(dll, "getTime"):
-        c_success = c_int(-1)
-        dll.getTime.argtypes = [POINTER(c_int), POINTER(c_double), POINTER(c_int)]
-        dll.getTime(byref(c_time_idx), byref(c_time), byref(c_success))
-        check_success(c_success.value, f"Get time at index {time_index}", exception_class=StateError)
-        return c_time.value
-
-    states = _create_state_vectors_for_active_model()
-    return get_states_at_time_index_full(time_index, states)
+    dll.getTime.argtypes = [POINTER(c_int), POINTER(c_double), POINTER(c_int)]
+    dll.getTime(byref(c_time_idx), byref(c_time), byref(c_success))
+    check_success(c_success.value, f"Get time at index {time_index}", exception_class=StateError)
+    return c_time.value
 
 
 def update_system(time: float, states: Dict[str, np.ndarray]) -> None:
@@ -597,17 +490,10 @@ def update_system_at_time_index(time_index: int) -> None:
     dll = get_dll()
 
     c_time_idx = c_int(time_index + 1)
-
-    if hasattr(dll, "updateSystemAtTimeIndex"):
-        c_success = c_int(-1)
-        dll.updateSystemAtTimeIndex.argtypes = [POINTER(c_int), POINTER(c_int)]
-        dll.updateSystemAtTimeIndex(byref(c_time_idx), byref(c_success))
-        check_success(c_success.value, f"Update system at time index {time_index}", exception_class=StateError)
-        return
-
-    states = _create_state_vectors_for_active_model()
-    time = get_states_at_time_index_full(time_index, states)
-    update_system(time, states)
+    c_success = c_int(-1)
+    dll.updateSystemAtTimeIndex.argtypes = [POINTER(c_int), POINTER(c_int)]
+    dll.updateSystemAtTimeIndex(byref(c_time_idx), byref(c_success))
+    check_success(c_success.value, f"Update system at time index {time_index}", exception_class=StateError)
 
 
 def update_jacobian() -> None:
@@ -699,8 +585,7 @@ def get_parameter_names() -> list:
         POINTER(c_char)
     ]
 
-    # Newer C APIs use one-based label indices.
-    # Use 1 for count-query and later auto-detect enumeration start index.
+    # Parameters use one-based label indices.
     c_param_idx = c_int(1)
     dll.getParameterInformation(
         byref(c_param_idx),
@@ -730,13 +615,7 @@ def get_parameter_names() -> list:
         )
         return decode_string(name_buf.value).strip()
 
-    # Prefer one-based indexing; fallback to zero-based for legacy compatibility.
-    names_one_based = [_read_name(1 + offset) for offset in range(param_count)]
-    names_zero_based = [_read_name(offset) for offset in range(param_count)]
-
-    if sum(1 for n in names_one_based if n) >= sum(1 for n in names_zero_based if n):
-        return names_one_based
-    return names_zero_based
+    return [_read_name(1 + offset) for offset in range(param_count)]
 
 
 def modify_spline(spline_label: str, spline_data: np.ndarray) -> None:
@@ -842,19 +721,3 @@ def get_measure_names() -> list:
     
     return measure_names
 
-
-# ============================================================================
-# Deprecated: Old API (for backwards compatibility)
-# ============================================================================
-
-# Keep the old function names for backwards compatibility
-def init(dll_path: Optional[str] = None) -> None:
-    """Deprecated: Use initialize() instead."""
-    initialize(dll_path)
-
-
-# Make the old fdci_dll global accessible (deprecated)
-@property
-def fdci_dll():
-    """Deprecated: For backwards compatibility only."""
-    return get_dll()
