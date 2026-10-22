@@ -113,15 +113,19 @@ class ForceParameterDerivativeMatrixBuffer:
 
         self.dll.getForceVector.argtypes = [
             c_char_p,
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
+            POINTER(c_double), #np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
             POINTER(c_int),
         ]
+        
+        self.args_fast = []
+        for column_index, label in enumerate(self.parameter_labels):
+            c_label = c_char_p(label.encode("utf-8"))
+            p_col = self.data[:, column_index:column_index + 1].ctypes.data_as(POINTER(c_double))
+            self.args_fast.append((c_label, p_col, label))
 
     def update_from_dll(self) -> None:
         """Refresh all parameter-derivative columns in-place from the DLL."""
-        for column_index, label in enumerate(self.parameter_labels):
-            c_label = c_char_p(label.encode("utf-8"))
-            column_view = self.data[:, column_index:column_index + 1]
-            self.dll.getForceVector(c_label, column_view, byref(self.c_success))
+        for c_label, p_col, label in self.args_fast:
+            self.dll.getForceVector(c_label, p_col, byref(self.c_success))
             if self.c_success.value <= 0:
                 raise ParameterError(f"Failed to compute force derivative for parameter {label}")
