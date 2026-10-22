@@ -108,6 +108,8 @@ if ($DryRun) {
 # ---------------------------------------------------------------------------
 Step "Building wheel"
 if (Test-Path "dist") { Remove-Item "dist" -Recurse -Force }
+# setuptools reuses build/ - stale package files (e.g. old DLLs) would end up in the wheel
+if (Test-Path "build") { Remove-Item "build" -Recurse -Force }
 
 & $PythonExe -m build --wheel --outdir dist
 if ($LASTEXITCODE -ne 0) { Die "Build failed." }

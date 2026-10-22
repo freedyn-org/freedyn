@@ -30,6 +30,10 @@ _top_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "x64_
 _pkg_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "bindings", "python", "freedyn", "bin")
 if os.path.isdir(_top_bin):
+    # Start from an empty package bin/, otherwise leftovers of former builds
+    # (e.g. GUI-only DLLs) would end up in the wheel
+    if os.path.isdir(_pkg_bin):
+        shutil.rmtree(_pkg_bin)
     os.makedirs(_pkg_bin, exist_ok=True)
     for _src in glob.glob(os.path.join(_top_bin, "*.dll")):
         if os.path.basename(_src).lower() not in {d.lower() for d in _GUI_ONLY_DLLS}:
