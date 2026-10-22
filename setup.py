@@ -3,11 +3,28 @@ import glob
 import os
 import shutil
 
+try:
+    from setuptools.command.bdist_wheel import bdist_wheel
+except ImportError:  # setuptools < 70.1
+    from wheel.bdist_wheel import bdist_wheel
+
 
 class BinaryDistribution(Distribution):
     """Force platform-specific wheel (win_amd64) because we ship native DLLs."""
     def has_ext_modules(self):
         return True
+
+
+class PlatformWheel(bdist_wheel):
+    """Tag the wheel py3-none-<platform>.
+
+    The package bundles native DLLs (-> platform specific), but loads them via
+    ctypes only and has no compiled Python extension, so one wheel works for
+    every Python 3 version.
+    """
+    def get_tag(self):
+        _, _, plat = super().get_tag()
+        return "py3", "none", plat
 
 
 with open("README.md", "r", encoding="utf-8") as fh:
@@ -50,6 +67,7 @@ setup(
     url="https://github.com/freedyn-org/freedyn",
     license="LGPL-3.0",
     distclass=BinaryDistribution,
+    cmdclass={"bdist_wheel": PlatformWheel},
     package_dir={"": "bindings/python"},
     packages=find_packages(where="bindings/python"),
     include_package_data=True,
@@ -67,6 +85,9 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: Microsoft :: Windows :: Windows 7",
         "Operating System :: Microsoft :: Windows :: Windows 10",

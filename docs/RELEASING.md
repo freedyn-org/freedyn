@@ -43,7 +43,8 @@ The script mirrors `me\batchbuild\20_PrepareFreeDynPublicRelease.bat` (and 220/2
 .\scripts\release.ps1 -Version 1.2.3 -PyPIRepo pypi
 ```
 
-`release.ps1` tags the version, builds the wheel (`setup.py` copies `bin/x64_MD/*.dll`
+`release.ps1` tags the version, builds one `py3-none-win_amd64` wheel for all
+Python 3 versions (`setup.py` copies `bin/x64_MD/*.dll`
 without the GUI-only DLLs into the package), uploads it with `twine` and creates the
 GitHub release with `FreeDyn-win-x64_MD.zip` and `FreeDyn-win-x64_MT.zip`.
 The working tree must be clean.
