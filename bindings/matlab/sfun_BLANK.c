@@ -24,8 +24,8 @@
 // --- Declarations
 typedef void (__stdcall *createFreeDynModel_type)(char[],char[],int*,char[]);
 typedef void (__stdcall *deleteFreeDynModel_type)(int*,int*);
-typedef void (__stdcall *setModelAsActiv_type)(int*,int*);
-typedef void (__stdcall *getModelInfos_type)(int*,int*,int*,int*,int*,int*,int*,int*);
+typedef void (__stdcall *setModelAsActive_type)(int*,int*);
+typedef void (__stdcall *getModelDofInfo_type)(int*,int*,int*,int*,int*,int*,int*,int*);
 typedef void (__stdcall *computeInitialConditions_type)(int*);
 typedef void (__stdcall *modifyDataObject_type)(char[],int*,double*,int*,double[],double[],int*);
 typedef void (__stdcall *solveTimeInterval_type)(double*,int*);
@@ -43,8 +43,8 @@ HINSTANCE dllHandle = NULL;
 
 createFreeDynModel_type createFreeDynModel_ptr = NULL; 
 deleteFreeDynModel_type deleteFreeDynModel_ptr = NULL; 
-setModelAsActiv_type setModelAsActiv_ptr = NULL;
-getModelInfos_type getModelInfos_ptr = NULL;
+setModelAsActive_type setModelAsActive_ptr = NULL;
+getModelDofInfo_type getModelDofInfo_ptr = NULL;
 computeInitialConditions_type computeInitialConditions_ptr = NULL;
 modifyDataObject_type modifyDataObject_ptr = NULL; 
 solveTimeInterval_type solveTimeInterval_ptr = NULL;
@@ -57,14 +57,14 @@ int oModelIndex;
 char oErrorMessage[512];    
 int oScilabOutputDmy;
     
-int oNumAllDofs;
-int oNumPhysicalDof;
-int oNumInternalConstraintDof;
-int oNumExternalConstraintDof;
+int oNumGeneralizedCoordinates;
+int oNumLagrangeMultipliers;
+int oNumBodyStates;
 int oNumBodies;
 int oNumExtConstraints;
 int oNumForces;
 int oNumMeasures;
+int oDofInfoSuccess;
 
 struct modelInfo modelInfoModel;
 
@@ -219,31 +219,40 @@ static void mdlStart(SimStruct *S)
         // --- Pointer to Library Functions
         createFreeDynModel_ptr = (createFreeDynModel_type) GetProcAddress(dllHandle,"createFreeDynModel");
         deleteFreeDynModel_ptr = (deleteFreeDynModel_type) GetProcAddress(dllHandle,"deleteFreeDynModel");
-        setModelAsActiv_ptr = (setModelAsActiv_type) GetProcAddress(dllHandle,"setModelAsActiv");
-        getModelInfos_ptr = (getModelInfos_type) GetProcAddress(dllHandle,"getModelInfos");
+        setModelAsActive_ptr = (setModelAsActive_type) GetProcAddress(dllHandle,"setModelAsActive");
+        getModelDofInfo_ptr = (getModelDofInfo_type) GetProcAddress(dllHandle,"getModelDofInfo");
         computeInitialConditions_ptr = (computeInitialConditions_type) GetProcAddress(dllHandle,"computeInitialConditions");
         modifyDataObject_ptr = (modifyDataObject_type) GetProcAddress(dllHandle,"modifyDataObject");
         solveTimeInterval_ptr = (solveTimeInterval_type) GetProcAddress(dllHandle,"solveTimeInterval");
         updateSystem_ptr = (updateSystem_type) GetProcAddress(dllHandle,"updateSystem");
         getMeasureValueWithMeasureName_ptr = (getMeasureValueWithMeasureName_type) GetProcAddress(dllHandle,"getMeasureValueWithMeasureName");
+
+        // --- A missing export (e.g. DLL of another API version) would crash Simulink when called
+        if (!createFreeDynModel_ptr || !deleteFreeDynModel_ptr || !setModelAsActive_ptr || !getModelDofInfo_ptr ||
+            !computeInitialConditions_ptr || !modifyDataObject_ptr || !solveTimeInterval_ptr || !updateSystem_ptr ||
+            !getMeasureValueWithMeasureName_ptr)
+        {
+            ssSetErrorStatus(S, "FreeDyn DLL does not export all required functions (API version mismatch).");
+            return;
+        }
         
 //         ssPrintf( "dll handle address: %p\n", dllHandle );
 //         ssPrintf( "createFreeDynModel_ptr address: %p\n", createFreeDynModel_ptr );
-//         ssPrintf( "getModelInfos_ptr: %p\n", getModelInfos_ptr );
+//         ssPrintf( "getModelDofInfo_ptr: %p\n", getModelDofInfo_ptr );
 //         ssPrintf( "computeInitialConditions_ptr address: %p\n", computeInitialConditions_ptr );
         
         // --- Create Model
         createFreeDynModel_ptr(iPath2FdsFile,iStatusOutputFlag,&oModelIndex,oErrorMessage);
         
         // --- Set Model Active
-        setModelAsActiv_ptr(&oModelIndex,&oScilabOutputDmy);
+        setModelAsActive_ptr(&oModelIndex,&oScilabOutputDmy);
         
         // --- Get Model Infos
-        getModelInfos_ptr(&oNumAllDofs,&oNumPhysicalDof,&oNumInternalConstraintDof,&oNumExternalConstraintDof,&oNumBodies,&oNumExtConstraints,&oNumForces,&oNumMeasures);
+        getModelDofInfo_ptr(&oNumGeneralizedCoordinates,&oNumLagrangeMultipliers,&oNumBodyStates,&oNumBodies,&oNumExtConstraints,&oNumForces,&oNumMeasures,&oDofInfoSuccess);
        
-        modelInfoModel.NumAllDofs = oNumAllDofs;
-        modelInfoModel.NumPhysicalDof = oNumPhysicalDof;
-        modelInfoModel.NumConstraintDof = oNumInternalConstraintDof + oNumExternalConstraintDof;
+        modelInfoModel.NumAllDofs = oNumGeneralizedCoordinates + oNumLagrangeMultipliers;
+        modelInfoModel.NumPhysicalDof = oNumGeneralizedCoordinates;
+        modelInfoModel.NumConstraintDof = oNumLagrangeMultipliers;
     
 //         ssPrintf( "modelInfoMotorcycle.NumPhysicalDof: %d\n", modelInfoMotorcycle.NumPhysicalDof);
 //         ssPrintf( "modelInfoMotorcycle.NumConstraintDof: %d\n", modelInfoMotorcycle.NumConstraintDof);
