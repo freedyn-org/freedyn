@@ -25,6 +25,9 @@ class ModelMatrixBuffer:
         "dll_row_ind",
         "dll_col_ind",
         "dll_nonzeros",
+        "p_row",
+        "p_col",
+        "p_nnz",
         "sparse",
         "flat_idx",
         "dense_mat_flat",
@@ -39,21 +42,24 @@ class ModelMatrixBuffer:
 
         self.dll.getModelRelatedMatrix.argtypes = [
             POINTER(c_int),
-            np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-            np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=1),
+            POINTER(c_int),
+            POINTER(c_int),
+            POINTER(c_double),
         ]
 
         mat_num_rows, mat_num_cols, num_nonzeros = _get_matrix_dimensions(matrix_index)
 
         self.dll_row_ind = np.zeros(mat_num_rows + 1, dtype=c_int)
         self.dll_col_ind = np.zeros(num_nonzeros, dtype=c_int)
-        self.dll_nonzeros = np.zeros(num_nonzeros)
-
+        self.dll_nonzeros = np.zeros(num_nonzeros, dtype = c_double)
         self.c_idx_mat = c_int(matrix_index)
-        self.dll.getModelRelatedMatrix(
-            byref(self.c_idx_mat), self.dll_row_ind, self.dll_col_ind, self.dll_nonzeros
-        )
+        
+        self.p_row = self.dll_row_ind.ctypes.data_as(POINTER(c_int))
+        self.p_col = self.dll_col_ind.ctypes.data_as(POINTER(c_int))
+        self.p_nnz = self.dll_nonzeros.ctypes.data_as(POINTER(c_double))        
+        
+        self.dll.getModelRelatedMatrix(byref(self.c_idx_mat), 
+                                       self.p_row, self.p_col, self.p_nnz)
 
         # Convert 1-based indices to 0-based.
         col_ind = self.dll_col_ind - 1
@@ -80,9 +86,8 @@ class ModelMatrixBuffer:
 
     def update_from_dll(self) -> None:
         """Refresh nonzero values from DLL for current matrix index."""
-        self.dll.getModelRelatedMatrix(
-            byref(self.c_idx_mat), self.dll_row_ind, self.dll_col_ind, self.dll_nonzeros
-        )
+        self.dll.getModelRelatedMatrix(byref(self.c_idx_mat),
+                                       self.p_row, self.p_col, self.p_nnz)
 
     def apply_to_cached_matrix(self) -> None:
         """Write refreshed values into cached sparse/dense matrix container."""
