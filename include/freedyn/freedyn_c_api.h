@@ -230,14 +230,26 @@ FDCIDLLMode getMeasureValueWithMeasureName(char iMeasureName[], double* oMeasure
 
 /// Compute measure derivative w.r.t. generalized coordinates. Requires prior call to updateSystem.
 /**
-* Uses cached state/time from the latest successful updateSystem() call.
+* Uses cached state/time from the latest successful updateSystem() / updateSystemAtTimeIndex() call.
+* The row is dense and ordered like the generalized coordinates (body by body: translation, rotation, flexible dofs).
 *
 * @param[in]  iMeasureLabel  char*    Label of the measure
-* @param[out] oMeasureDer    double*  Derivative w.r.t. all gen. coords (length: oNumGeneralizedCoordinates)
-* @param[out] oSuccess       int*     1 if successful, 0 on error
+* @param[out] oMeasureDer    double*  dS/dq w.r.t. all gen. coords (length: oNumGeneralizedCoordinates)
+* @param[out] oSuccess       int*     1 if successful, 0 on error (no active model, no updated system, unknown label)
 */
 FDCIDLLMode getMeasureDerivative(char iMeasureLabel[],
                                  double oMeasureDer[], int* oSuccess);
+
+/// Compute measure derivative w.r.t. generalized velocities. Requires prior call to updateSystem.
+/**
+* Same conventions as getMeasureDerivative.
+*
+* @param[in]  iMeasureLabel  char*    Label of the measure
+* @param[out] oMeasureDer    double*  dS/dqd w.r.t. all gen. velocities (length: oNumGeneralizedCoordinates)
+* @param[out] oSuccess       int*     1 if successful, 0 on error (no active model, no updated system, unknown label)
+*/
+FDCIDLLMode getMeasureDerivativeQd(char iMeasureLabel[],
+                                   double oMeasureDer[], int* oSuccess);
 
 //=========================================================================
 //=========================================================================

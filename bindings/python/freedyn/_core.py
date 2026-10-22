@@ -721,3 +721,49 @@ def get_measure_names() -> list:
     
     return measure_names
 
+
+def get_measure_derivative(measure_label: str, wrt: str = "q") -> np.ndarray:
+    """Get the derivative of a measure w.r.t. the generalized coordinates or velocities.
+
+    The system must already be at the desired state via update_system() or
+    update_system_at_time_index().
+
+    Args:
+        measure_label: Name of the measure
+        wrt: "q" for dS/dq (generalized coordinates) or "qd" for dS/dqd
+            (generalized velocities)
+
+    Returns:
+        Numpy array of shape (1, numGeneralizedCoordinates), ordered like the
+        generalized coordinates (body by body: translation, rotation, flexible dofs)
+
+    Raises:
+        ValueError: If wrt is neither "q" nor "qd"
+        ParameterError: If the measure is not found or the system is not updated
+    """
+    if wrt == "q":
+        func_name = "getMeasureDerivative"
+    elif wrt == "qd":
+        func_name = "getMeasureDerivativeQd"
+    else:
+        raise ValueError(f"wrt must be 'q' or 'qd', got {wrt!r}")
+
+    dll = get_dll()
+    func = getattr(dll, func_name)
+
+    c_success = c_int(-1)
+    c_label = encode_string(measure_label)
+
+    model_info = get_model_info()
+    measure_der = np.zeros((1, model_info["numGeneralizedCoordinates"]), dtype=c_double)
+
+    func.argtypes = [
+        c_char_p,
+        np.ctypeslib.ndpointer(dtype=c_double, ndim=2, flags="C_CONTIGUOUS"),
+        POINTER(c_int)
+    ]
+    func(c_label, measure_der, byref(c_success))
+
+    check_success(c_success.value, f"Get measure derivative d{measure_label}/d{wrt}", exception_class=ParameterError)
+
+    return measure_der

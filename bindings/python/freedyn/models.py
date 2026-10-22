@@ -367,6 +367,24 @@ class Model:
         """
         return _core.get_measure_value(measure_name)
     
+    def get_measure_derivative(self, measure_name: str, wrt: str = "q") -> np.ndarray:
+        """Get derivative of a measure w.r.t. generalized coordinates or velocities.
+
+        The model must be at the desired state (update_state() or
+        update_state_at_index()).
+
+        Args:
+            measure_name: Name of measure
+            wrt: "q" for dS/dq or "qd" for dS/dqd
+
+        Returns:
+            Numpy array of shape (1, num_generalized_coordinates)
+
+        Raises:
+            ParameterError: If measure not found or system not updated
+        """
+        return _core.get_measure_derivative(measure_name, wrt)
+
     def get_measure_names(self) -> List[str]:
         """Get all available measure names.
         
