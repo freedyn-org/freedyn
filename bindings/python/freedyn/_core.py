@@ -575,7 +575,7 @@ def get_parameter_names() -> list:
     c_job_flag = c_int(2)
     int_infos = np.zeros(1, dtype=c_int)
     double_infos = np.zeros(1, dtype=c_double)
-    char_infos = create_string_buffer(256)
+    char_infos = create_string_buffer(512)  # DLL writes a fixed 512-char field
 
     dll.getParameterInformation.argtypes = [
         POINTER(c_int),
@@ -604,7 +604,7 @@ def get_parameter_names() -> list:
     def _read_name(index: int) -> str:
         int_infos.fill(0)
         double_infos.fill(0.0)
-        name_buf = create_string_buffer(256)
+        name_buf = create_string_buffer(512)  # DLL writes a fixed 512-char field
         c_param_idx_local = c_int(index)
         dll.getParameterInformation(
             byref(c_param_idx_local),
