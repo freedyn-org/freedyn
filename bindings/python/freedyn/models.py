@@ -5,11 +5,13 @@ This is the main user-facing API for FreeDyn simulations. Use the Model
 class for most applications.
 """
 
+from ctypes import c_double
 from typing import Dict, List, Tuple
 from pathlib import Path
 import numpy as np
 
 from . import _core
+from ._ctypes_utils import as_ptr
 from .exceptions import ModelError, SimulationError, StateError
 
 
@@ -89,6 +91,7 @@ class Model:
         "_Qd",
         "_Qdd",
         "_L",
+        "_p_states",
         "_is_deleted",
     ]
     
@@ -114,6 +117,10 @@ class Model:
         self._Qd: np.ndarray = np.zeros((n_q, 1))
         self._Qdd: np.ndarray = np.zeros((n_q, 1))
         self._L: np.ndarray = np.zeros((n_l, 1))
+        # Pointers to the state buffers, created once for fetch_states_at_index.
+        self._p_states = tuple(
+            as_ptr(buf, c_double) for buf in (self._Q, self._Qd, self._Qdd, self._L)
+        )
         self._is_deleted = False
     
     def __enter__(self):
@@ -219,8 +226,7 @@ class Model:
         Raises:
             StateError: If retrieval fails
         """
-        _states = {"Q": self._Q, "Qd": self._Qd, "Qdd": self._Qdd, "L": self._L}
-        self._t = _core.get_states_at_time_index_full(time_index, _states)
+        self._t = _core.get_states_at_time_index_ptr(time_index, *self._p_states)
 
     @property
     def t(self) -> float:

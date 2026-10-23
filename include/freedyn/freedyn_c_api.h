@@ -189,7 +189,7 @@ FDCIDLLMode modifyDataObject(char iDataObjectLabel[],
 /// Get parameter information
 /**
 * @param[in]  iParameterIndex  int*    Index of the parameter (one-based)
-* @param[in]  iJobFlag         int*    1 = get parameter label (oCharInfos, min 256), 2 = get count (oIntInfos)
+* @param[in]  iJobFlag         int*    1 = get parameter label (oCharInfos, min 512), 2 = get count (oIntInfos)
 * @param[out] oIntInfos        int*    Integer information
 * @param[out] oDoubleInfos     double* Double information (reserved)
 * @param[out] oCharInfos       char*   Char information
@@ -209,7 +209,7 @@ FDCIDLLMode getParameterInformation(int* iParameterIndex,
 /// Get measure information
 /**
 * @param[in]  iMeasureIndex  int*    Index of the measure (zero-based)
-* @param[in]  iJobFlag       int*    1 = get measure name (oCharInfos, min 256), 2 = get count (oIntInfos)
+* @param[in]  iJobFlag       int*    1 = get measure name (oCharInfos, min 512), 2 = get count (oIntInfos)
 * @param[out] oIntInfos      int*    Integer information
 * @param[out] oDoubleInfos   double* Double information (reserved)
 * @param[out] oCharInfos     char*   Char information
