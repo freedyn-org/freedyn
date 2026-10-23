@@ -1,10 +1,11 @@
 """Reusable vector and dense derivative buffers for high-frequency C-interface retrieval."""
 
-from ctypes import c_int, c_double, c_char_p, byref, POINTER
+from ctypes import c_int, c_double, c_char_p, byref
 
 import numpy as np
 
 from . import _core
+from ._ctypes_utils import as_ptr
 from .exceptions import ConstraintError, ParameterError
 
 
@@ -21,6 +22,7 @@ class ModelVectorBuffer:
         "dll",
         "c_vector_type",
         "data",
+        "p_data",
         "c_success",
         "dll_function",
         "vector_label",
@@ -33,18 +35,14 @@ class ModelVectorBuffer:
         self.vector_label = vector_symbol
         self.c_vector_type = c_char_p(vector_symbol.encode("utf-8"))
         self.data = np.zeros((vector_length, 1), dtype=c_double, order='F')
+        self.p_data = as_ptr(self.data, c_double)
         self.c_success = c_int(-1)
 
         self.dll_function = getattr(self.dll, dll_function_name)
-        self.dll_function.argtypes = [
-            c_char_p,
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-            POINTER(c_int),
-        ]
 
     def update_from_dll(self) -> None:
         """Refresh vector values in-place from the DLL."""
-        self.dll_function(self.c_vector_type, self.data, byref(self.c_success))
+        self.dll_function(self.c_vector_type, self.p_data, byref(self.c_success))
         if self.c_success.value <= 0:
             raise ConstraintError(f"Failed to compute vector {self.vector_label}")
 
@@ -111,17 +109,16 @@ class ForceParameterDerivativeMatrixBuffer:
         self.data = np.zeros((self.num_rows, len(labels)), dtype=c_double, order='F')
         self.c_success = c_int(-1)
 
-        self.dll.getForceVector.argtypes = [
-            c_char_p,
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-            POINTER(c_int),
+        # Label and column pointer per parameter, created once. Columns of the
+        # Fortran-ordered data matrix are contiguous.
+        self.column_args = [
+            (c_char_p(label.encode("utf-8")), as_ptr(self.data[:, column_index], c_double), label)
+            for column_index, label in enumerate(labels)
         ]
 
     def update_from_dll(self) -> None:
         """Refresh all parameter-derivative columns in-place from the DLL."""
-        for column_index, label in enumerate(self.parameter_labels):
-            c_label = c_char_p(label.encode("utf-8"))
-            column_view = self.data[:, column_index:column_index + 1]
-            self.dll.getForceVector(c_label, column_view, byref(self.c_success))
+        for c_label, p_column, label in self.column_args:
+            self.dll.getForceVector(c_label, p_column, byref(self.c_success))
             if self.c_success.value <= 0:
                 raise ParameterError(f"Failed to compute force derivative for parameter {label}")

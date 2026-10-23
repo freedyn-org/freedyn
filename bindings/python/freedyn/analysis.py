@@ -6,11 +6,12 @@ dynamics analysis.
 """
 
 from typing import List, Tuple
-from ctypes import c_int, c_double, c_char_p, byref, POINTER
+from ctypes import c_int, c_double, c_char_p, byref
 import numpy as np
 from scipy.sparse import csr_matrix
 
 from . import _core
+from ._ctypes_utils import as_ptr
 from ._matrix_buffer import ModelMatrixBuffer
 from ._vector_buffer import (
     ForceVectorBuffer,
@@ -79,12 +80,7 @@ def get_force_vector(
     info = _core.get_model_info()
     q_vec = np.zeros((info["numGeneralizedCoordinates"], 1))
 
-    dll.getForceVector.argtypes = [
-        c_char_p,
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        POINTER(c_int)
-    ]
-    dll.getForceVector(c_vector_type, q_vec, byref(c_success))
+    dll.getForceVector(c_vector_type, as_ptr(q_vec, c_double), byref(c_success))
     
     if c_success.value <= 0:
         raise ConstraintError(f"Failed to compute {vector_type} vector")
@@ -127,12 +123,7 @@ def get_constraint_vector(
     info = _core.get_model_info()
     l_vec = np.zeros((info["numLagrangeMultipliers"], 1))
 
-    dll.getConstraintVector.argtypes = [
-        c_char_p,
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        POINTER(c_int)
-    ]
-    dll.getConstraintVector(c_vector_type, l_vec, byref(c_success))
+    dll.getConstraintVector(c_vector_type, as_ptr(l_vec, c_double), byref(c_success))
     
     if c_success.value <= 0:
         raise ConstraintError(f"Failed to compute {vector_type} vector")
@@ -166,20 +157,14 @@ def create_matrix(
     c_num_cols = c_int(np.max(col_positions) + 1)
     c_num_matrices = c_int(matrix_ids.shape[0])
     c_matrix_idx = c_int(-1)
-    
-    dll.createModelRelatedMatrix.argtypes = [
-        POINTER(c_int),
-        POINTER(c_int),
-        POINTER(c_int),
-        np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-        np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-        np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=1),
-        POINTER(c_int)
-    ]
+    num_matrices = c_num_matrices.value
+
     dll.createModelRelatedMatrix(
         byref(c_num_rows), byref(c_num_cols), byref(c_num_matrices),
-        matrix_ids, row_positions, col_positions, scaling_values,
+        as_ptr(matrix_ids, c_int, num_matrices),
+        as_ptr(row_positions, c_int, num_matrices),
+        as_ptr(col_positions, c_int, num_matrices),
+        as_ptr(scaling_values, c_double, num_matrices),
         byref(c_matrix_idx)
     )
     
@@ -208,12 +193,6 @@ def get_matrix_dimensions(matrix_index: int) -> Tuple[int, int, int]:
     c_num_cols = c_int(0)
     c_num_nonzeros = c_int(0)
     
-    dll.getDimOfModelRelatedMatrix.argtypes = [
-        POINTER(c_int),
-        POINTER(c_int),
-        POINTER(c_int),
-        POINTER(c_int)
-    ]
     dll.getDimOfModelRelatedMatrix(
         byref(c_matrix_idx), byref(c_num_rows),
         byref(c_num_cols), byref(c_num_nonzeros)
@@ -247,13 +226,10 @@ def get_matrix(matrix_index: int) -> csr_matrix:
     
     c_matrix_idx = c_int(matrix_index)
     
-    dll.getModelRelatedMatrix.argtypes = [
-        POINTER(c_int),
-        np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-        np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=1)
-    ]
-    dll.getModelRelatedMatrix(byref(c_matrix_idx), row_ind, col_ind, nonzeros)
+    dll.getModelRelatedMatrix(
+        byref(c_matrix_idx),
+        as_ptr(row_ind, c_int), as_ptr(col_ind, c_int), as_ptr(nonzeros, c_double)
+    )
     
     # Convert 1-based indices to 0-based
     col_ind = col_ind - 1

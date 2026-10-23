@@ -13,15 +13,62 @@ import numpy as np
 import os
 
 from .exceptions import DLLLoadError, ModelError, SimulationError, ParameterError, StateError
-from ._ctypes_utils import encode_string, decode_string, check_success, create_error_buffer
+from ._ctypes_utils import encode_string, decode_string, check_success, create_error_buffer, as_ptr
 
 
 DEFAULT_DLL_NAMES = ("freedyn.dll",)
 DEFAULT_DLL_NAMES_MT = ("freedyn_mt.dll",)
 
+# The DLL writes a fixed 512-character field for labels and messages,
+# regardless of the minimum length stated in the header.
+CHAR_FIELD_LENGTH = 512
+
 
 # Global DLL instance
 _dll: Optional[CDLL] = None
+
+_P_INT = POINTER(c_int)
+_P_DOUBLE = POINTER(c_double)
+_P_CHAR = POINTER(c_char)
+
+# argtypes of every C-API function, declared once when the DLL is loaded.
+# ctypes shares one function object per name, so argtypes must never be set
+# anywhere else: a second, different declaration silently breaks all other
+# callers. Arrays are passed as plain pointers (see _ctypes_utils.as_ptr).
+_SIGNATURES = {
+    "createFreeDynModel": [c_char_p, c_char_p, _P_INT, _P_CHAR],
+    "setModelAsActive": [_P_INT, _P_INT],
+    "deleteFreeDynModel": [_P_INT, _P_INT],
+    "resetActiveModelForRerun": [_P_INT],
+    "getModelDofInfo": [_P_INT] * 8,
+    "solveEoM": [_P_INT],
+    "solveTimeInterval": [_P_DOUBLE, _P_INT],
+    "computeInitialConditions": [_P_INT],
+    "getNumberOfSolutionTimeSteps": [_P_INT, _P_INT],
+    "getTime": [_P_INT, _P_DOUBLE, _P_INT],
+    "getGeneralizedStatesAtTimeIndex": [_P_INT, _P_DOUBLE, _P_DOUBLE, _P_DOUBLE, _P_DOUBLE, _P_DOUBLE, _P_INT],
+    "updateSystem": [_P_DOUBLE, _P_DOUBLE, _P_DOUBLE, _P_DOUBLE, _P_DOUBLE, _P_INT],
+    "updateSystemAtTimeIndex": [_P_INT, _P_INT],
+    "updateJacobian": [_P_INT],
+    "modifyDataObject": [c_char_p, _P_INT, _P_DOUBLE, _P_INT, _P_DOUBLE, _P_DOUBLE, _P_INT],
+    "getParameterInformation": [_P_INT, _P_INT, _P_INT, _P_DOUBLE, _P_CHAR],
+    "getMeasureInformation": [_P_INT, _P_INT, _P_INT, _P_DOUBLE, _P_CHAR],
+    "getMeasureValueWithMeasureName": [c_char_p, _P_DOUBLE, _P_INT],
+    "getMeasureDerivative": [c_char_p, _P_DOUBLE, _P_INT],
+    "getMeasureDerivativeQd": [c_char_p, _P_DOUBLE, _P_INT],
+    "getForceVector": [c_char_p, _P_DOUBLE, _P_INT],
+    "getConstraintVector": [c_char_p, _P_DOUBLE, _P_INT],
+    "createModelRelatedMatrix": [_P_INT, _P_INT, _P_INT, _P_INT, _P_INT, _P_INT, _P_DOUBLE, _P_INT],
+    "getDimOfModelRelatedMatrix": [_P_INT, _P_INT, _P_INT, _P_INT],
+    "getModelRelatedMatrix": [_P_INT, _P_INT, _P_INT, _P_DOUBLE],
+}
+
+
+def _declare_signatures(dll: CDLL) -> None:
+    """Set argtypes for all known C-API functions; optional ones may be missing."""
+    for name, argtypes in _SIGNATURES.items():
+        if hasattr(dll, name):
+            getattr(dll, name).argtypes = argtypes
 
 
 
@@ -92,6 +139,7 @@ def initialize(dll_path: Optional[str] = None) -> None:
     for candidate in candidates:
         dll = try_load(candidate)
         if dll is not None:
+            _declare_signatures(dll)
             _dll = dll
             return
 
@@ -141,9 +189,7 @@ def create_model(fds_file_path: str, status_output: str = 'SCREEN') -> int:
     c_path = encode_string(abs_fds_path)
     c_status = encode_string(status_output)
     c_model_idx = c_int(-1)
-    error_buf, get_error = create_error_buffer()
-
-    dll.createFreeDynModel.argtypes = [c_char_p, c_char_p, POINTER(c_int), POINTER(c_char)]
+    error_buf, get_error = create_error_buffer(CHAR_FIELD_LENGTH)
 
     # Some models reference additional files via relative paths.
     # Resolve these against the .fds parent directory during model creation.
@@ -201,7 +247,6 @@ def set_model_active(model_index: int) -> None:
     c_model_idx = c_int(model_index)
     c_success = c_int(-1)
     
-    dll.setModelAsActive.argtypes = [POINTER(c_int), POINTER(c_int)]
     dll.setModelAsActive(byref(c_model_idx), byref(c_success))
     
     check_success(c_success.value, f"Set model {model_index} active", exception_class=ModelError)
@@ -219,7 +264,6 @@ def reset_active_model_for_rerun() -> None:
         raise ModelError("resetActiveModelForRerun is not available in DLL")
 
     c_success = c_int(-1)
-    dll.resetActiveModelForRerun.argtypes = [POINTER(c_int)]
     dll.resetActiveModelForRerun(byref(c_success))
 
     check_success(c_success.value, "Reset active model for rerun", exception_class=ModelError)
@@ -247,11 +291,6 @@ def get_model_info() -> Dict[str, int]:
     n_measures = c_int(0)
     c_success = c_int(-1)
 
-    dll.getModelDofInfo.argtypes = [
-        POINTER(c_int), POINTER(c_int), POINTER(c_int),
-        POINTER(c_int), POINTER(c_int), POINTER(c_int),
-        POINTER(c_int), POINTER(c_int)
-    ]
     dll.getModelDofInfo(
         byref(n_q), byref(n_l), byref(n_body_states),
         byref(n_bodies), byref(n_ext_constr), byref(n_forces),
@@ -336,7 +375,6 @@ def get_num_time_steps() -> int:
     
     c_num_steps = c_int(-1)
     c_success = c_int(-1)
-    dll.getNumberOfSolutionTimeSteps.argtypes = [POINTER(c_int), POINTER(c_int)]
     dll.getNumberOfSolutionTimeSteps(byref(c_num_steps), byref(c_success))
     check_success(c_success.value, "Get number of solution time steps", exception_class=SimulationError)
     return c_num_steps.value
@@ -359,31 +397,17 @@ def get_states_at_time_index(time_index: int, states: Dict[str, np.ndarray]) -> 
     Raises:
         StateError: If retrieval fails
     """
-    dll = get_dll()
-    
-    c_time_idx = c_int(time_index + 1)  # C interface uses 1-based indexing
-    c_time = c_double(0.0)
-
     info = get_model_info()
-    qd = np.zeros_like(states["Q"])
-    qdd = np.zeros_like(states["Q"])
+    n_q = info["numGeneralizedCoordinates"]
+    qd = np.zeros((n_q, 1), dtype=c_double)
+    qdd = np.zeros((n_q, 1), dtype=c_double)
     l = np.zeros((info["numLagrangeMultipliers"], 1), dtype=c_double)
-    c_success = c_int(-1)
 
-    dll.getGeneralizedStatesAtTimeIndex.argtypes = [
-        POINTER(c_int), POINTER(c_double),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        POINTER(c_int)
-    ]
-    dll.getGeneralizedStatesAtTimeIndex(
-        byref(c_time_idx), byref(c_time),
-        states["Q"], qd, qdd, l, byref(c_success)
+    return get_states_at_time_index_ptr(
+        time_index,
+        as_ptr(states["Q"], c_double, n_q),
+        as_ptr(qd, c_double), as_ptr(qdd, c_double), as_ptr(l, c_double),
     )
-    check_success(c_success.value, f"Get states at time index {time_index}", exception_class=StateError)
-    return c_time.value
 
 
 def get_states_at_time_index_full(time_index: int, states: Dict[str, np.ndarray]) -> float:
@@ -399,23 +423,45 @@ def get_states_at_time_index_full(time_index: int, states: Dict[str, np.ndarray]
     Raises:
         StateError: If retrieval fails
     """
+    info = get_model_info()
+    n_q = info["numGeneralizedCoordinates"]
+    n_l = info["numLagrangeMultipliers"]
+
+    return get_states_at_time_index_ptr(
+        time_index,
+        as_ptr(states["Q"], c_double, n_q),
+        as_ptr(states["Qd"], c_double, n_q),
+        as_ptr(states["Qdd"], c_double, n_q),
+        as_ptr(states["L"], c_double, n_l),
+    )
+
+
+def get_states_at_time_index_ptr(time_index: int, p_q, p_qd, p_qdd, p_l) -> float:
+    """Get full states at a time index into caller-owned buffers given as pointers.
+
+    Fast path for loops: create the pointers once with _ctypes_utils.as_ptr
+    and reuse them for every call.
+
+    Args:
+        time_index: Time step index (0-based)
+        p_q, p_qd, p_qdd: POINTER(c_double) to buffers of numGeneralizedCoordinates
+        p_l: POINTER(c_double) to a buffer of numLagrangeMultipliers
+
+    Returns:
+        Time value at index
+
+    Raises:
+        StateError: If retrieval fails
+    """
     dll = get_dll()
-    
-    c_time_idx = c_int(time_index + 1)
+
+    c_time_idx = c_int(time_index + 1)  # C interface uses 1-based indexing
     c_time = c_double(0.0)
     c_success = c_int(-1)
 
-    dll.getGeneralizedStatesAtTimeIndex.argtypes = [
-        POINTER(c_int), POINTER(c_double),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        POINTER(c_int)
-    ]
     dll.getGeneralizedStatesAtTimeIndex(
         byref(c_time_idx), byref(c_time),
-        states["Q"], states["Qd"], states["Qdd"], states["L"],
+        p_q, p_qd, p_qdd, p_l,
         byref(c_success)
     )
     check_success(c_success.value, f"Get full states at time index {time_index}", exception_class=StateError)
@@ -440,7 +486,6 @@ def get_time_at_index(time_index: int) -> float:
     c_time = c_double(0.0)
     c_success = c_int(-1)
 
-    dll.getTime.argtypes = [POINTER(c_int), POINTER(c_double), POINTER(c_int)]
     dll.getTime(byref(c_time_idx), byref(c_time), byref(c_success))
     check_success(c_success.value, f"Get time at index {time_index}", exception_class=StateError)
     return c_time.value
@@ -461,17 +506,10 @@ def update_system(time: float, states: Dict[str, np.ndarray]) -> None:
     c_time = c_double(time)
     c_success = c_int(-1)
     
-    dll.updateSystem.argtypes = [
-        POINTER(c_double),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2),
-        POINTER(c_int)
-    ]
     dll.updateSystem(
         byref(c_time),
-        states["Q"], states["Qd"], states["Qdd"], states["L"],
+        as_ptr(states["Q"], c_double), as_ptr(states["Qd"], c_double),
+        as_ptr(states["Qdd"], c_double), as_ptr(states["L"], c_double),
         byref(c_success)
     )
     
@@ -491,7 +529,6 @@ def update_system_at_time_index(time_index: int) -> None:
 
     c_time_idx = c_int(time_index + 1)
     c_success = c_int(-1)
-    dll.updateSystemAtTimeIndex.argtypes = [POINTER(c_int), POINTER(c_int)]
     dll.updateSystemAtTimeIndex(byref(c_time_idx), byref(c_success))
     check_success(c_success.value, f"Update system at time index {time_index}", exception_class=StateError)
 
@@ -512,7 +549,6 @@ def update_jacobian() -> None:
         raise StateError("updateJacobian is not available in DLL")
 
     c_success = c_int(-1)
-    dll.updateJacobian.argtypes = [POINTER(c_int)]
     dll.updateJacobian(byref(c_success))
 
     check_success(c_success.value, "Update Jacobian", exception_class=StateError)
@@ -541,18 +577,10 @@ def modify_parameter(param_label: str, param_value: float) -> None:
     c_dummy = c_int(0)
     c_empty_array = np.array([], dtype=c_double)
     
-    dll.modifyDataObject.argtypes = [
-        c_char_p,
-        POINTER(c_int),
-        POINTER(c_double),
-        POINTER(c_int),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=1),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=1),
-        POINTER(c_int)
-    ]
+    p_empty = as_ptr(c_empty_array, c_double)
     dll.modifyDataObject(
         c_label, byref(c_job_flag), byref(c_value), byref(c_dummy),
-        c_empty_array, c_empty_array, byref(c_success)
+        p_empty, p_empty, byref(c_success)
     )
     
     check_success(c_success.value, f"Modify parameter {param_label}", exception_class=ParameterError)
@@ -575,23 +603,17 @@ def get_parameter_names() -> list:
     c_job_flag = c_int(2)
     int_infos = np.zeros(1, dtype=c_int)
     double_infos = np.zeros(1, dtype=c_double)
-    char_infos = create_string_buffer(512)  # DLL writes a fixed 512-char field
-
-    dll.getParameterInformation.argtypes = [
-        POINTER(c_int),
-        POINTER(c_int),
-        np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=1),
-        POINTER(c_char)
-    ]
+    p_int_infos = as_ptr(int_infos, c_int)
+    p_double_infos = as_ptr(double_infos, c_double)
+    char_infos = create_string_buffer(CHAR_FIELD_LENGTH)
 
     # Parameters use one-based label indices.
     c_param_idx = c_int(1)
     dll.getParameterInformation(
         byref(c_param_idx),
         byref(c_job_flag),
-        int_infos,
-        double_infos,
+        p_int_infos,
+        p_double_infos,
         char_infos
     )
     param_count = int(int_infos[0])
@@ -604,13 +626,13 @@ def get_parameter_names() -> list:
     def _read_name(index: int) -> str:
         int_infos.fill(0)
         double_infos.fill(0.0)
-        name_buf = create_string_buffer(512)  # DLL writes a fixed 512-char field
+        name_buf = create_string_buffer(CHAR_FIELD_LENGTH)
         c_param_idx_local = c_int(index)
         dll.getParameterInformation(
             byref(c_param_idx_local),
             byref(c_job_flag),
-            int_infos,
-            double_infos,
+            p_int_infos,
+            p_double_infos,
             name_buf
         )
         return decode_string(name_buf.value).strip()
@@ -645,18 +667,9 @@ def modify_spline(spline_label: str, spline_data: np.ndarray) -> None:
     c_label = encode_string(spline_label)
     c_dummy = c_double(0.0)
     
-    dll.modifyDataObject.argtypes = [
-        c_char_p,
-        POINTER(c_int),
-        POINTER(c_double),
-        POINTER(c_int),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=1),
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=1),
-        POINTER(c_int)
-    ]
     dll.modifyDataObject(
-        c_label, byref(c_job_flag), c_dummy, byref(c_num_data),
-        x_values, y_values, byref(c_success)
+        c_label, byref(c_job_flag), byref(c_dummy), byref(c_num_data),
+        as_ptr(x_values, c_double), as_ptr(y_values, c_double), byref(c_success)
     )
     
     check_success(c_success.value, f"Modify spline {spline_label}", exception_class=ParameterError)
@@ -680,11 +693,6 @@ def get_measure_value(measure_label: str) -> float:
     c_label = encode_string(measure_label)
     c_value = c_double(0.0)
     
-    dll.getMeasureValueWithMeasureName.argtypes = [
-        c_char_p,
-        POINTER(c_double),
-        POINTER(c_int)
-    ]
     dll.getMeasureValueWithMeasureName(c_label, byref(c_value), byref(c_success))
     
     check_success(c_success.value, f"Get measure {measure_label}", exception_class=ParameterError)
@@ -706,17 +714,14 @@ def get_measure_names() -> list:
     for i in range(model_info["numMeasures"]):
         c_index = c_int(i)
         c_job_flag = c_int(1)
-        c_name_buf = create_string_buffer(512)
+        c_name_buf = create_string_buffer(CHAR_FIELD_LENGTH)
         int_info = np.zeros(1, dtype=c_int)
         double_info = np.zeros(1, dtype=c_double)
 
-        dll.getMeasureInformation.argtypes = [
-            POINTER(c_int), POINTER(c_int),
-            np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=1),
-            POINTER(c_char)
-        ]
-        dll.getMeasureInformation(byref(c_index), byref(c_job_flag), int_info, double_info, c_name_buf)
+        dll.getMeasureInformation(
+            byref(c_index), byref(c_job_flag),
+            as_ptr(int_info, c_int), as_ptr(double_info, c_double), c_name_buf
+        )
         measure_names.append(decode_string(c_name_buf.value))
     
     return measure_names
@@ -757,12 +762,7 @@ def get_measure_derivative(measure_label: str, wrt: str = "q") -> np.ndarray:
     model_info = get_model_info()
     measure_der = np.zeros((1, model_info["numGeneralizedCoordinates"]), dtype=c_double)
 
-    func.argtypes = [
-        c_char_p,
-        np.ctypeslib.ndpointer(dtype=c_double, ndim=2, flags="C_CONTIGUOUS"),
-        POINTER(c_int)
-    ]
-    func(c_label, measure_der, byref(c_success))
+    func(c_label, as_ptr(measure_der, c_double), byref(c_success))
 
     check_success(c_success.value, f"Get measure derivative d{measure_label}/d{wrt}", exception_class=ParameterError)
 

@@ -6,10 +6,10 @@ between C types and Python types.
 """
 
 from ctypes import c_int, c_double, c_char_p, create_string_buffer, byref, POINTER
-from typing import Optional, Any, Tuple
+from typing import Optional, Tuple
 import numpy as np
 
-from .exceptions import FreeDynError, DLLLoadError
+from .exceptions import FreeDynError
 
 
 def check_success(
@@ -36,33 +36,34 @@ def check_success(
         raise exception_class(msg)
 
 
-def call_c_function(
-    dll,
-    func_name: str,
-    argtypes: Optional[list] = None,
-    args: Optional[list] = None,
-) -> Any:
-    """Safely call a C function from the DLL with type checking.
-    
+def as_ptr(array: np.ndarray, ctype, min_size: Optional[int] = None):
+    """Return a ctypes pointer to the data of a numpy array.
+
+    Replaces np.ctypeslib.ndpointer argtypes: the checks run once here instead of
+    on every DLL call, so hot paths can create the pointer once and reuse it.
+    The returned pointer keeps a reference to the array.
+
     Args:
-        dll: Loaded DLL object
-        func_name: Name of the function to call
-        argtypes: List of ctypes for argument types
-        args: Arguments to pass to function
-        
+        array: Numpy array passed to the DLL
+        ctype: Expected element type (c_int or c_double)
+        min_size: Minimum number of elements the DLL may access
+
     Returns:
-        Return value from the C function
+        POINTER(ctype) to the first element
+
+    Raises:
+        TypeError: If dtype does not match or the data is not contiguous
+        ValueError: If the array has fewer than min_size elements
     """
-    if not dll:
-        raise DLLLoadError("DLL not loaded. Call initialize() first.")
-    
-    func = getattr(dll, func_name)
-    if argtypes:
-        func.argtypes = argtypes
-    
-    if args:
-        return func(*args)
-    return func()
+    if not isinstance(array, np.ndarray):
+        raise TypeError(f"expected numpy.ndarray, got {type(array).__name__}")
+    if array.dtype != np.dtype(ctype):
+        raise TypeError(f"array dtype must be {np.dtype(ctype)}, got {array.dtype}")
+    if not (array.flags.c_contiguous or array.flags.f_contiguous):
+        raise TypeError("array must be contiguous in memory")
+    if min_size is not None and array.size < min_size:
+        raise ValueError(f"array has {array.size} elements, DLL expects at least {min_size}")
+    return array.ctypes.data_as(POINTER(ctype))
 
 
 def encode_string(s: str) -> c_char_p:

@@ -4,12 +4,13 @@ This module hosts internal performance helpers used in optimization loops
 to avoid repeated allocation and index-setup overhead.
 """
 
-from ctypes import c_int, c_double, byref, POINTER
+from ctypes import c_int, c_double, byref
 
 import numpy as np
 from scipy.sparse import csr_matrix
 
 from . import _core
+from ._ctypes_utils import as_ptr
 
 
 class ModelMatrixBuffer:
@@ -25,6 +26,9 @@ class ModelMatrixBuffer:
         "dll_row_ind",
         "dll_col_ind",
         "dll_nonzeros",
+        "p_row",
+        "p_col",
+        "p_nnz",
         "sparse",
         "flat_idx",
         "dense_mat_flat",
@@ -37,23 +41,19 @@ class ModelMatrixBuffer:
         self.sparse = sparse
         self.dll = _core.get_dll()
 
-        self.dll.getModelRelatedMatrix.argtypes = [
-            POINTER(c_int),
-            np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-            np.ctypeslib.ndpointer(dtype=c_int, ndim=1),
-            np.ctypeslib.ndpointer(dtype=c_double, ndim=1),
-        ]
-
         mat_num_rows, mat_num_cols, num_nonzeros = _get_matrix_dimensions(matrix_index)
 
         self.dll_row_ind = np.zeros(mat_num_rows + 1, dtype=c_int)
         self.dll_col_ind = np.zeros(num_nonzeros, dtype=c_int)
-        self.dll_nonzeros = np.zeros(num_nonzeros)
+        self.dll_nonzeros = np.zeros(num_nonzeros, dtype=c_double)
+
+        # Pointers are created once; the arrays above are never reallocated.
+        self.p_row = as_ptr(self.dll_row_ind, c_int)
+        self.p_col = as_ptr(self.dll_col_ind, c_int)
+        self.p_nnz = as_ptr(self.dll_nonzeros, c_double)
 
         self.c_idx_mat = c_int(matrix_index)
-        self.dll.getModelRelatedMatrix(
-            byref(self.c_idx_mat), self.dll_row_ind, self.dll_col_ind, self.dll_nonzeros
-        )
+        self.update_from_dll()
 
         # Convert 1-based indices to 0-based.
         col_ind = self.dll_col_ind - 1
@@ -80,9 +80,7 @@ class ModelMatrixBuffer:
 
     def update_from_dll(self) -> None:
         """Refresh nonzero values from DLL for current matrix index."""
-        self.dll.getModelRelatedMatrix(
-            byref(self.c_idx_mat), self.dll_row_ind, self.dll_col_ind, self.dll_nonzeros
-        )
+        self.dll.getModelRelatedMatrix(byref(self.c_idx_mat), self.p_row, self.p_col, self.p_nnz)
 
     def apply_to_cached_matrix(self) -> None:
         """Write refreshed values into cached sparse/dense matrix container."""
