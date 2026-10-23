@@ -120,14 +120,7 @@ See [LICENSE](https://github.com/freedyn-org/freedyn/blob/main/LICENSE) for deta
 
 ## Release Notes
 
-**Latest Release**
-- Initial public release
-- Complete Python bindings refactoring
-- High-level API (Model, ModelInfo, analysis functions)
-- Command-line tool (freedyn-run)
-- Core MBS simulation capabilities
-- Matrix/vector extraction functionality
-- Comprehensive documentation
+See [GitHub Releases](https://github.com/freedyn-org/freedyn/releases) for the changes in each version.
 
 ## Contributing
 
