@@ -61,6 +61,7 @@ _SIGNATURES = {
     "createModelRelatedMatrix": [_P_INT, _P_INT, _P_INT, _P_INT, _P_INT, _P_INT, _P_DOUBLE, _P_INT],
     "getDimOfModelRelatedMatrix": [_P_INT, _P_INT, _P_INT, _P_INT],
     "getModelRelatedMatrix": [_P_INT, _P_INT, _P_INT, _P_DOUBLE],
+    "setScalingValuesOfModelRelatedMatrix": [_P_INT, _P_INT, _P_DOUBLE, _P_INT],
 }
 
 

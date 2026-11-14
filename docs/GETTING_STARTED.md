@@ -169,6 +169,29 @@ D = fd.analysis.get_damping_matrix()
 print(M.shape, K.shape, D.shape)
 ```
 
+### Composed sparse matrices (e.g. adjoint solvers)
+Sub-matrices are summed up block-wise into one sparse matrix with a fixed
+pattern. Besides the system matrices there are an identity matrix
+(`IDENTITY`, dimension like `MASS`) and transposed variants
+(`DMQDDDQ_T`, `DCQTLIDQ_T`, `DQEXTDQ_T`, `DQEXTDQD_T`, `DCQTLEDQ_T`).
+```python
+T = fd.analysis.MATRIX_TYPES
+ids    = np.array([T["MASS"], T["DQEXTDQD_T"], T["DQEXTDQ_T"], T["CQT"], T["CQ"]], dtype=np.int32)
+rows   = np.array([0, 0, 0, 0, 1], dtype=np.int32)
+cols   = np.array([0, 0, 0, 1, 0], dtype=np.int32)
+scales = np.array([1/h**2, -1/h, -1.0, 1.0, 1.0])
+
+idx = fd.analysis.create_matrix(ids, rows, cols, scales)
+buf = fd.analysis.ModelRelatedMatrixBuffer(idx, sparse=True)
+
+model.update_state_at_index(i)
+model.update_jacobian()
+buf.set_scaling([1/h_new**2, -1/h_new, -1.0, 1.0, 1.0])  # new step size, same pattern
+buf.update_from_dll()
+buf.apply_to_cached_matrix()                             # buf.sp_mat is up to date
+```
+See `examples/example_07_adjoint_sparse_coefficient_matrix.py`.
+
 ### Force vectors
 ```python
 states = model.create_state_vectors()

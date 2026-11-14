@@ -78,6 +78,12 @@ class ModelMatrixBuffer:
         """Switch to another existing matrix index with the same structure."""
         self.c_idx_mat.value = new_idx
 
+    def set_scaling(self, scaling_values) -> None:
+        """Change the scaling values of the current matrix index (pattern stays the same)."""
+        from .analysis import set_matrix_scaling
+
+        set_matrix_scaling(self.c_idx_mat.value, scaling_values)
+
     def update_from_dll(self) -> None:
         """Refresh nonzero values from DLL for current matrix index."""
         self.dll.getModelRelatedMatrix(byref(self.c_idx_mat), self.p_row, self.p_col, self.p_nnz)

@@ -1,0 +1,30 @@
+## FreeDyn (unreleased)
+
+### Bundled FreeDyn Core
+
+**New Features**
+- **C-API, model-related matrices:** new matrix ID `112` (identity matrix, dimension like `M`) and transposed variants `122`, `125`, `128`, `129`, `130` of `102`, `105`, `108`, `109`, `110`. They can be summed up with the other IDs at the same block position.
+- **C-API:** new `setScalingValuesOfModelRelatedMatrix` changes the scaling values of an existing model-related matrix. The sparsity pattern stays the same.
+- **C-API:** `createModelRelatedMatrix` returns `oModelMatrixIndex = -1` for unknown matrix IDs instead of running into an assert. `getModelRelatedMatrix` ignores invalid indices instead of crashing.
+
+**Bug Fixes**
+- **Measures:** `getMeasureDerivative` and `getMeasureDerivativeQd` failed for labels with upper case letters (labels are stored in lower case), e.g. `dispX_P2`.
+- **Measures:** `getMeasureValueWithMeasureName` reported success and returned `0.0` for unknown labels. It now sets `oSuccess = 0`.
+- **External subroutine force:** since release 1.0.0 the GUI wrote the key `Path2DLL`, but the solver reads `Path2Dll`, so the DLL of external subroutines was not found. The GUI writes `Path2Dll` again; GUI and solver also accept `Path2DLL`, so existing FDS/FDD files keep working.
+
+---
+
+### Python Bindings
+
+**New Features**
+- `MATRIX_TYPES`: `IDENTITY`, `DMQDDDQ_T`, `DCQTLIDQ_T`, `DQEXTDQ_T`, `DQEXTDQD_T`, `DCQTLEDQ_T`.
+- `fd.analysis.set_matrix_scaling(matrix_index, scaling_values)` and `ModelRelatedMatrixBuffer.set_scaling(scaling_values)`.
+- `fd.analysis.get_identity_matrix()`.
+- `create_matrix()` accepts lists and converts the dtypes itself.
+- New example `example_07_adjoint_sparse_coefficient_matrix.py` (sparse coefficient matrix for an adjoint BDF-like solver).
+
+**Bug Fixes**
+- `Model.get_measure_value()` raises `ParameterError` for unknown measures, as documented (needs the core fix above).
+
+### MATLAB
+- `api.setScalingValuesOfModelRelatedMatrix(index, scaling)`; matrix ID list in `createModelRelatedMatrix` updated.

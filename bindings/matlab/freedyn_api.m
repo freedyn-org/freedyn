@@ -83,6 +83,7 @@ function api = freedyn_api(fdBinDirectory, fdHeaderFile)
     api.createModelRelatedMatrix       = @fdApi_createModelRelatedMatrix;
     api.getModelRelatedMatrix          = @fdApi_getModelRelatedMatrix;
     api.getDimOfModelRelatedMatrix     = @fdApi_getDimOfModelRelatedMatrix;
+    api.setScalingValuesOfModelRelatedMatrix = @fdApi_setScalingValuesOfModelRelatedMatrix;
 end
 
 % =========================================================================
@@ -387,6 +388,9 @@ function modelMatrixIndex = fdApi_createModelRelatedMatrix( ...
 %     108  DQEXTDQ       d(QExt)/dq
 %     109  DQEXTDQD      d(QExt)/dqd
 %     110  DCQTLEDQ      d(Cq'*l)/dq (external)
+%     111  ABARKINSOL    A_bar (kinematic solver)
+%     112  IDENTITY      identity I (dimension like M)
+%     122, 125, 128, 129, 130  transposed of 102, 105, 108, 109, 110
 %     201  CQT           Cq'
 %     301  CQ            Cq
 %   rowPos, colPos  Block position of each matrix in the assembled matrix.
@@ -412,4 +416,16 @@ function M = fdApi_getModelRelatedMatrix(modelMatrixIndex)
     % CSR3 with one-based indices -> row index of every non-zero
     rowInd = repelem((1:rowDim)', diff(double(rowPtr)));
     M = sparse(rowInd, double(colInd), values, rowDim, colDim);
+end
+
+function fdApi_setScalingValuesOfModelRelatedMatrix(modelMatrixIndex, scaling)
+% Change the scaling values of an existing model-related matrix.
+% The sparsity pattern stays the same. numel(scaling) must match the
+% number of matrices passed to createModelRelatedMatrix.
+    [~, ~, ~, success] = calllib('FDCI_Dll', 'setScalingValuesOfModelRelatedMatrix', ...
+        modelMatrixIndex, numel(scaling), double(scaling), 0);
+    if success ~= 1
+        error('freedyn:setScalingValuesOfModelRelatedMatrix', ...
+            'Setting the scaling values failed (invalid index or number of values).');
+    end
 end
