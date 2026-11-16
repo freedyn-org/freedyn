@@ -34,6 +34,13 @@ MATRIX_TYPES = {
     "DQEXTDQD": 109,                # d(QExt(q,qd))/dqd
     "DCQTLEDQ": 110,                # d(Cq(q)'*l)/dq (external)
     "ABAR": 111,                    # A_bar matrix for kinematics
+    "IDENTITY": 112,                # Identity matrix I (same dimension as MASS)
+    # Transposed variants (ID of the original matrix + 20)
+    "DMQDDDQ_T": 122,               # (d(M(q)*qdd)/dq)'
+    "DCQTLIDQ_T": 125,              # (d(Cq(q)'*l)/dq (internal))'
+    "DQEXTDQ_T": 128,               # (d(QExt(q,qd))/dq)'
+    "DQEXTDQD_T": 129,              # (d(QExt(q,qd))/dqd)'
+    "DCQTLEDQ_T": 130,              # (d(Cq(q)'*l)/dq (external))'
     "CQT": 201,                     # d(c(q))/dq transposed
     "CQTDT": 202,                   # d/dt(d(c(q))/dq) transposed
     "CQ": 301,                      # d(c(q))/dq
@@ -139,6 +146,11 @@ def create_matrix(
 ) -> int:
     """Create a custom model matrix by mapping component matrices.
     
+    All matrices with IDs 101 to 130 (see MATRIX_TYPES) have the dimension of
+    MASS and may be placed at the same block position; they are summed up.
+    The sparsity pattern is fixed at creation. Use set_matrix_scaling() to
+    change the scaling values later without creating a new matrix.
+
     Args:
         matrix_ids: Array of matrix type IDs (see MATRIX_TYPES)
         row_positions: Row positions where matrices map (0-based)
@@ -149,9 +161,14 @@ def create_matrix(
         Matrix index for later retrieval
         
     Raises:
-        MatrixError: If matrix creation fails
+        MatrixError: If matrix creation fails (e.g. unknown matrix ID)
     """
     dll = _core.get_dll()
+
+    matrix_ids = np.ascontiguousarray(matrix_ids, dtype=np.int32)
+    row_positions = np.ascontiguousarray(row_positions, dtype=np.int32)
+    col_positions = np.ascontiguousarray(col_positions, dtype=np.int32)
+    scaling_values = np.ascontiguousarray(scaling_values, dtype=np.float64)
     
     c_num_rows = c_int(np.max(row_positions) + 1)
     c_num_cols = c_int(np.max(col_positions) + 1)
@@ -172,6 +189,44 @@ def create_matrix(
         raise MatrixError("Failed to create model matrix")
     
     return c_matrix_idx.value
+
+
+def set_matrix_scaling(matrix_index: int, scaling_values: np.ndarray) -> None:
+    """Change the scaling values of an existing model matrix.
+
+    The sparsity pattern (and thus the nonzero structure of get_matrix() or a
+    ModelRelatedMatrixBuffer) stays the same, only the values change on the
+    next retrieval. Typical use: new step size of an integration scheme.
+
+    Args:
+        matrix_index: Index returned by create_matrix()
+        scaling_values: New scaling factor per matrix, same length and order
+            as the scaling_values passed to create_matrix()
+
+    Raises:
+        MatrixError: If the index is invalid or the number of values does not match
+    """
+    dll = _core.get_dll()
+    if not hasattr(dll, "setScalingValuesOfModelRelatedMatrix"):
+        raise MatrixError(
+            "set_matrix_scaling() needs a freedyn.dll that exports setScalingValuesOfModelRelatedMatrix"
+        )
+
+    scaling_values = np.ascontiguousarray(scaling_values, dtype=np.float64).ravel()
+    c_matrix_idx = c_int(matrix_index)
+    c_num_values = c_int(scaling_values.shape[0])
+    c_success = c_int(0)
+
+    dll.setScalingValuesOfModelRelatedMatrix(
+        byref(c_matrix_idx), byref(c_num_values),
+        as_ptr(scaling_values, c_double), byref(c_success)
+    )
+
+    if c_success.value <= 0:
+        raise MatrixError(
+            f"Failed to set {c_num_values.value} scaling value(s) of model matrix {matrix_index} "
+            "(invalid index or number of values differs from create_matrix())"
+        )
 
 
 def get_matrix_dimensions(matrix_index: int) -> Tuple[int, int, int]:
@@ -253,6 +308,21 @@ def get_mass_matrix() -> csr_matrix:
     col_pos = np.array([0], dtype=np.int32)
     scales = np.array([1.0])
     
+    matrix_idx = create_matrix(matrix_ids, row_pos, col_pos, scales)
+    return get_matrix(matrix_idx)
+
+
+def get_identity_matrix() -> csr_matrix:
+    """Get identity matrix with the dimension (and dof ordering) of the mass matrix.
+
+    Returns:
+        Sparse identity matrix
+    """
+    matrix_ids = np.array([MATRIX_TYPES["IDENTITY"]], dtype=np.int32)
+    row_pos = np.array([0], dtype=np.int32)
+    col_pos = np.array([0], dtype=np.int32)
+    scales = np.array([1.0])
+
     matrix_idx = create_matrix(matrix_ids, row_pos, col_pos, scales)
     return get_matrix(matrix_idx)
 

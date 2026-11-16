@@ -391,11 +391,20 @@ FDCIDLLMode getConstraintVector(char iConstraintQuantity[],
 * @param[in]  iRow                      int*     Number of block rows
 * @param[in]  iCol                      int*     Number of block columns
 * @param[in]  iNumOfMatricesToBeMapped  int*     Number of sub-matrices to compose
-* @param[in]  iMatrixIdentifier         int[]    Matrix type IDs (101=M, 102=dMqdd/dq, ..., 301=Cq)
+* @param[in]  iMatrixIdentifier         int[]    Matrix type IDs:
+*                                              101 = M                   102 = d(M*qdd)/dq
+*                                              103 = dQvv/dq             104 = dQvv/dqd
+*                                              105 = d(CqT*l)/dq inner   106 = K
+*                                              107 = D                   108 = dQext/dq
+*                                              109 = dQext/dqd           110 = d(CqT*l)/dq external
+*                                              111 = A_bar (kin. solver) 112 = identity I (dim like M)
+*                                              122, 125, 128, 129, 130 = transposed of 102, 105, 108, 109, 110
+*                                              201 = CqT   202 = d(CqT)/dt   301 = Cq   302 = d(Cq)/dt
+*                                              IDs 101 to 130 have the dimension of M and may be summed up at the same block position.
 * @param[in]  iRowPosition              int[]    Block row position per sub-matrix
 * @param[in]  iColPosition              int[]    Block column position per sub-matrix
 * @param[in]  iScalingValue             double[] Scaling factor per sub-matrix
-* @param[out] oModelMatrixIndex         int*     Index of created matrix (for later retrieval)
+* @param[out] oModelMatrixIndex         int*     Index of created matrix (for later retrieval), -1 on error (e.g. unknown ID)
 */
 FDCIDLLMode createModelRelatedMatrix(int* iRow, int* iCol, int* iNumOfMatricesToBeMapped,
                                      int iMatrixIdentifier[], int iRowPosition[], int iColPosition[],
@@ -418,6 +427,18 @@ FDCIDLLMode getDimOfModelRelatedMatrix(int* iModelMatrixIndex, int* oRowDim, int
 * @param[out] oValues            double[]  Non-zero values (length: oNumNonZeros)
 */
 FDCIDLLMode getModelRelatedMatrix(int* iModelMatrixIndex, int oRowInd[], int oColInd[], double oValues[]);
+
+/// Change the scaling values of an existing model-related matrix
+/**
+* The sparsity pattern (oRowInd, oColInd of getModelRelatedMatrix) does not change, only the values.
+* Typical use: create the matrix once, then update the scaling values (e.g. for a new step size) before each getModelRelatedMatrix call.
+*
+* @param[in]  iModelMatrixIndex    int*      Index returned by createModelRelatedMatrix
+* @param[in]  iNumOfScalingValues  int*      Number of scaling values (must equal iNumOfMatricesToBeMapped of createModelRelatedMatrix)
+* @param[in]  iScalingValue        double[]  New scaling factor per sub-matrix, same order as in createModelRelatedMatrix
+* @param[out] oSuccess             int*      1 if successful, 0 on error
+*/
+FDCIDLLMode setScalingValuesOfModelRelatedMatrix(int* iModelMatrixIndex, int* iNumOfScalingValues, double iScalingValue[], int* oSuccess);
 
 //=========================================================================
 //=========================================================================
