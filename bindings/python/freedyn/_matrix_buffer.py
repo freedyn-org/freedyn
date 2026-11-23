@@ -95,9 +95,7 @@ class ModelMatrixBuffer:
     def set_scaling_from_intern_values(self, idx_change, value_changes) -> None:
         """Change the scaling values of the current matrix index (pattern stays the same).
            Scaling values are used from internal storage."""
-        
         self.scaling_values[idx_change] = value_changes
-        
         c_success = c_int(0)
 
         self.dll.setScalingValuesOfModelRelatedMatrix(
