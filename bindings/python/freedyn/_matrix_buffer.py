@@ -35,6 +35,9 @@ class ModelMatrixBuffer:
         "dense_mat",
         "sp_mat",
         "c_idx_mat",
+        "scaling_values",
+        "p_scaling",
+        "c_num_scaling_values"
     ]
 
     def __init__(self, matrix_index: int, sparse: bool):
@@ -77,12 +80,30 @@ class ModelMatrixBuffer:
     def set_index(self, new_idx: int) -> None:
         """Switch to another existing matrix index with the same structure."""
         self.c_idx_mat.value = new_idx
-
+        
     def set_scaling(self, scaling_values) -> None:
         """Change the scaling values of the current matrix index (pattern stays the same)."""
         from .analysis import set_matrix_scaling
-
         set_matrix_scaling(self.c_idx_mat.value, scaling_values)
+        
+    def create_intern_scaling_values(self, scaling_values) -> None:
+        """Create internal scaling values."""
+        self.scaling_values = np.ascontiguousarray(scaling_values, dtype=np.float64).ravel()
+        self.c_num_scaling_values = c_int(scaling_values.shape[0])
+        self.p_scaling = as_ptr(self.scaling_values, c_double)
+        
+    def set_scaling_from_intern_values(self, idx_change, value_changes) -> None:
+        """Change the scaling values of the current matrix index (pattern stays the same).
+           Scaling values are used from internal storage."""
+        
+        self.scaling_values[idx_change] = value_changes
+        
+        c_success = c_int(0)
+
+        self.dll.setScalingValuesOfModelRelatedMatrix(
+            byref(self.c_idx_mat), byref(self.c_num_scaling_values),
+            self.p_scaling, byref(c_success)
+        )
 
     def update_from_dll(self) -> None:
         """Refresh nonzero values from DLL for current matrix index."""
