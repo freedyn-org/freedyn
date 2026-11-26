@@ -10,6 +10,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 
 from . import _core
+from .exceptions import MatrixError
 from ._ctypes_utils import as_ptr
 
 
@@ -88,6 +89,11 @@ class ModelMatrixBuffer:
 
     def create_internal_scaling_values(self, scaling_values) -> None:
         """Create internal scaling values."""
+        if not hasattr(dll, "setScalingValuesOfModelRelatedMatrix"):
+            raise MatrixError(
+                "set_matrix_scaling() needs a freedyn.dll that exports setScalingValuesOfModelRelatedMatrix"
+            )
+        
         self.scaling_values = np.array(scaling_values, dtype=np.float64, copy=True).ravel()
         self.c_num_scaling_values = c_int(self.scaling_values.size)
         self.p_scaling = as_ptr(self.scaling_values, c_double)
@@ -101,6 +107,12 @@ class ModelMatrixBuffer:
         self.dll.setScalingValuesOfModelRelatedMatrix(
             byref(self.c_idx_mat), byref(self.c_num_scaling_values),
             self.p_scaling, byref(c_success)
+        )
+
+        if c_success.value <= 0:
+        raise MatrixError(
+            f"Failed to set {c_num_values.value} scaling value(s) of model matrix {matrix_index} "
+            "(invalid index or number of values differs from create_matrix())"
         )
 
     def update_from_dll(self) -> None:
