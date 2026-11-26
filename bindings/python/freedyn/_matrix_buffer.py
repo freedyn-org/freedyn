@@ -106,7 +106,7 @@ class ModelMatrixBuffer:
 
     def set_scaling_from_internal_values(self, idx_change: np.ndarray, value_changes: np.ndarray) -> None:
         """Change the scaling values of the current matrix index (pattern stays the same).
-           Vector value_changes must to be initialized by create_internal_scaling_values()
+           Vector scaling_values must be initialized by create_internal_scaling_values()
            Change the scaling values by its index
            
            Args:
