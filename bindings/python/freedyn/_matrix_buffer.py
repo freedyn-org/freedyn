@@ -97,7 +97,7 @@ class ModelMatrixBuffer:
             raise MatrixError(
                 "set_matrix_scaling() needs a freedyn.dll that exports setScalingValuesOfModelRelatedMatrix"
             )
-        
+
         self.scaling_values = np.array(scaling_values, dtype=np.float64, copy=True).ravel()
         self.c_num_scaling_values = c_int(self.scaling_values.size)
         self.p_scaling = as_ptr(self.scaling_values, c_double)
@@ -105,7 +105,7 @@ class ModelMatrixBuffer:
     def set_scaling_from_internal_values(self, idx_change: np.ndarray, value_changes: np.ndarray) -> None:
         """Change the scaling values of the current matrix index (pattern stays the same).
            Scaling values are used from internal storage."""
-           
+
         try: 
             self.scaling_values[idx_change] = value_changes
             c_success = c_int(0)
