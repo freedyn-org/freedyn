@@ -105,8 +105,16 @@ class ModelMatrixBuffer:
     def set_scaling_from_internal_values(self, idx_change, value_changes) -> None:
         """Change the scaling values of the current matrix index (pattern stays the same).
            Scaling values are used from internal storage."""
-        self.scaling_values[idx_change] = value_changes
-        c_success = c_int(0)
+           
+        try: 
+            self.scaling_values[idx_change] = value_changes
+            c_success = c_int(0)
+        except TypeError as exc:
+            if self.scaling_values is None:
+                raise MatrixError(
+                    "Internal scaling values are not initialized. Call create_internal_scaling_values()"
+                ) from exc
+                raise
 
         self.dll.setScalingValuesOfModelRelatedMatrix(
             byref(self.c_idx_mat), byref(self.c_num_scaling_values),
