@@ -89,7 +89,7 @@ class ModelMatrixBuffer:
     def create_intern_scaling_values(self, scaling_values) -> None:
         """Create internal scaling values."""
         self.scaling_values = np.ascontiguousarray(scaling_values, dtype=np.float64).ravel()
-        self.c_num_scaling_values = c_int(scaling_values.shape[0])
+        self.c_num_scaling_values = c_int(self.scaling_values.size)
         self.p_scaling = as_ptr(self.scaling_values, c_double)
         
     def set_scaling_from_intern_values(self, idx_change, value_changes) -> None:
