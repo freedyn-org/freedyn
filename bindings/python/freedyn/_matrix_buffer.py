@@ -39,6 +39,7 @@ class ModelMatrixBuffer:
         "scaling_values",
         "p_scaling",
         "c_num_scaling_values",
+        "c_success_scaling",
     ]
 
     def __init__(self, matrix_index: int, sparse: bool):
@@ -77,7 +78,8 @@ class ModelMatrixBuffer:
             self.dense_mat = np.zeros((mat_num_rows, mat_num_cols), order='C')
             self.dense_mat_flat = self.dense_mat.ravel(order='C')
             self.sp_mat = None
-
+        
+        self.c_success_scaling = c_int(0)
         self.scaling_values = None
         self.p_scaling = None
         self.c_num_scaling_values = None
@@ -92,7 +94,7 @@ class ModelMatrixBuffer:
         set_matrix_scaling(self.c_idx_mat.value, scaling_values)
 
     def create_internal_scaling_values(self, scaling_values) -> None:
-        """Create internal scaling values."""
+        """Create internal buffer for the scaling values."""
         if not hasattr(self.dll, "setScalingValuesOfModelRelatedMatrix"):
             raise MatrixError(
                 "set_matrix_scaling() needs a freedyn.dll that exports setScalingValuesOfModelRelatedMatrix"
@@ -104,11 +106,16 @@ class ModelMatrixBuffer:
 
     def set_scaling_from_internal_values(self, idx_change: np.ndarray, value_changes: np.ndarray) -> None:
         """Change the scaling values of the current matrix index (pattern stays the same).
-           Scaling values are used from internal storage."""
+           Vector value_changes must to be initialized by create_internal_scaling_values()
+           Change the scaling values by its index
+           
+           Args:
+               idx_change: Numpy array containing the indices to be changed
+               value_changes: Numpy array containing the values for each index
+       """
 
-        try: 
+        try:
             self.scaling_values[idx_change] = value_changes
-            c_success = c_int(0)
         except TypeError as exc:
             if self.scaling_values is None:
                 raise MatrixError(
@@ -118,10 +125,10 @@ class ModelMatrixBuffer:
 
         self.dll.setScalingValuesOfModelRelatedMatrix(
             byref(self.c_idx_mat), byref(self.c_num_scaling_values),
-            self.p_scaling, byref(c_success)
+            self.p_scaling, byref(self.c_success_scaling)
         )
 
-        if c_success.value <= 0:
+        if self.c_success_scaling.value <= 0:
             raise MatrixError(
                 f"Failed to set {self.c_num_scaling_values.value} scaling value(s) of model matrix {self.c_idx_mat.value} "
                 "(invalid index or number of values differs from create_matrix())"
