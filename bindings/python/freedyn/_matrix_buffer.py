@@ -114,7 +114,7 @@ class ModelMatrixBuffer:
                 raise MatrixError(
                     "Internal scaling values are not initialized. Call create_internal_scaling_values()"
                 ) from exc
-                raise
+            raise
 
         self.dll.setScalingValuesOfModelRelatedMatrix(
             byref(self.c_idx_mat), byref(self.c_num_scaling_values),
