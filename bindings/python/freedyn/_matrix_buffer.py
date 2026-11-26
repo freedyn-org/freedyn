@@ -84,10 +84,6 @@ class ModelMatrixBuffer:
         self.p_scaling = None
         self.c_num_scaling_values = None
 
-    def set_index(self, new_idx: int) -> None:
-        """Switch to another existing matrix index with the same structure."""
-        self.c_idx_mat.value = new_idx
-
     def set_scaling(self, scaling_values) -> None:
         """Change the scaling values of the current matrix index (pattern stays the same)."""
         from .analysis import set_matrix_scaling
