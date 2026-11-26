@@ -89,7 +89,7 @@ class ModelMatrixBuffer:
 
     def create_internal_scaling_values(self, scaling_values) -> None:
         """Create internal scaling values."""
-        if not hasattr(dll, "setScalingValuesOfModelRelatedMatrix"):
+        if not hasattr(self.dll, "setScalingValuesOfModelRelatedMatrix"):
             raise MatrixError(
                 "set_matrix_scaling() needs a freedyn.dll that exports setScalingValuesOfModelRelatedMatrix"
             )
@@ -110,10 +110,10 @@ class ModelMatrixBuffer:
         )
 
         if c_success.value <= 0:
-        raise MatrixError(
-            f"Failed to set {c_num_values.value} scaling value(s) of model matrix {matrix_index} "
-            "(invalid index or number of values differs from create_matrix())"
-        )
+            raise MatrixError(
+                f"Failed to set {self.c_num_scaling_values.value} scaling value(s) of model matrix {self.c_idx_mat} "
+                "(invalid index or number of values differs from create_matrix())"
+            )
 
     def update_from_dll(self) -> None:
         """Refresh nonzero values from DLL for current matrix index."""
