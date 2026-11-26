@@ -78,6 +78,10 @@ class ModelMatrixBuffer:
             self.dense_mat_flat = self.dense_mat.ravel(order='C')
             self.sp_mat = None
 
+        self.scaling_values = None
+        self.p_scaling = None
+        self.c_num_scaling_values = None
+
     def set_index(self, new_idx: int) -> None:
         """Switch to another existing matrix index with the same structure."""
         self.c_idx_mat.value = new_idx
