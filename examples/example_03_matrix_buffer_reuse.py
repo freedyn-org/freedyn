@@ -112,6 +112,21 @@ def main(argv=None):
                 trace_dense = float(np.trace(dense_buffer.dense_mat))
 
                 print(f"{i}, {trace_sparse:.6e}, {trace_dense:.6e}")
+                
+            
+            # Demo of changing the scales in the matrix buffer
+            temp_dense_mat = dense_buffer.dense_mat.copy()
+            scales = np.array([1.0, 1.0], dtype=np.float64)
+            dense_buffer.create_internal_scaling_values(scales)
+            idx_neg_scaling = np.array([0,1])
+            val_neg_scaling = np.array([-1.0,-1.0])
+            dense_buffer.set_scaling_from_internal_values(idx_neg_scaling, val_neg_scaling)
+            model.update_jacobian()
+            dense_buffer.update_from_dll()
+            dense_buffer.apply_to_cached_matrix()
+            if np.sum(temp_dense_mat + dense_buffer.dense_mat) == 0.0:
+                print("Scaling successful: Mat + (-Mat) == 0 ✓")    
+            
 
     except fd.exceptions.FreeDynError as exc:
         print(f"ERROR: {exc}")
