@@ -102,7 +102,7 @@ class ModelMatrixBuffer:
         self.c_num_scaling_values = c_int(self.scaling_values.size)
         self.p_scaling = as_ptr(self.scaling_values, c_double)
 
-    def set_scaling_from_internal_values(self, idx_change, value_changes) -> None:
+    def set_scaling_from_internal_values(self, idx_change: np.ndarray, value_changes: np.ndarray) -> None:
         """Change the scaling values of the current matrix index (pattern stays the same).
            Scaling values are used from internal storage."""
            
