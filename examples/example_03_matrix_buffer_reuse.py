@@ -124,8 +124,8 @@ def main(argv=None):
             model.update_jacobian()
             dense_buffer.update_from_dll()
             dense_buffer.apply_to_cached_matrix()
-            if np.sum(temp_dense_mat + dense_buffer.dense_mat) == 0.0:
-                print("Scaling successful: Mat + (-Mat) == 0 ✓")    
+            if np.sum(abs(temp_dense_mat + dense_buffer.dense_mat)) == 0.0:
+                print("Scaling successful: Matrix + (-Matrix) == 0 ✓")    
             
 
     except fd.exceptions.FreeDynError as exc:
