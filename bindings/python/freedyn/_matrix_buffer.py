@@ -115,7 +115,7 @@ class ModelMatrixBuffer:
 
         if c_success.value <= 0:
             raise MatrixError(
-                f"Failed to set {self.c_num_scaling_values.value} scaling value(s) of model matrix {self.c_idx_mat} "
+                f"Failed to set {self.c_num_scaling_values.value} scaling value(s) of model matrix {self.c_idx_mat.value} "
                 "(invalid index or number of values differs from create_matrix())"
             )
 
