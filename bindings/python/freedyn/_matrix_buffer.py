@@ -37,7 +37,7 @@ class ModelMatrixBuffer:
         "c_idx_mat",
         "scaling_values",
         "p_scaling",
-        "c_num_scaling_values"
+        "c_num_scaling_values",
     ]
 
     def __init__(self, matrix_index: int, sparse: bool):
@@ -85,13 +85,13 @@ class ModelMatrixBuffer:
         """Change the scaling values of the current matrix index (pattern stays the same)."""
         from .analysis import set_matrix_scaling
         set_matrix_scaling(self.c_idx_mat.value, scaling_values)
-        
+
     def create_intern_scaling_values(self, scaling_values) -> None:
         """Create internal scaling values."""
         self.scaling_values = np.ascontiguousarray(scaling_values, dtype=np.float64).ravel()
         self.c_num_scaling_values = c_int(self.scaling_values.size)
         self.p_scaling = as_ptr(self.scaling_values, c_double)
-        
+
     def set_scaling_from_intern_values(self, idx_change, value_changes) -> None:
         """Change the scaling values of the current matrix index (pattern stays the same).
            Scaling values are used from internal storage."""
