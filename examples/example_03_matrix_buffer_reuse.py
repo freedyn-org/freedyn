@@ -121,13 +121,12 @@ def main(argv=None):
             idx_neg_scaling = np.array([0,1])
             val_neg_scaling = np.array([-1.0,-1.0])
             dense_buffer.set_scaling_from_internal_values(idx_neg_scaling, val_neg_scaling)
-            model.update_jacobian()
             dense_buffer.update_from_dll()
             dense_buffer.apply_to_cached_matrix()
             if np.sum(abs(temp_dense_mat + dense_buffer.dense_mat)) == 0.0:
                 print("Scaling successful: Matrix + (-Matrix) == 0 ✓")
             else:
-                print("Scaling failed! Matrix + (-Matrix) == 0 x")
+                print("Scaling failed! Matrix + (-Matrix) is not 0")
 
 
     except fd.exceptions.FreeDynError as exc:
