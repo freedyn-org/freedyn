@@ -78,7 +78,7 @@ class ModelMatrixBuffer:
             self.dense_mat = np.zeros((mat_num_rows, mat_num_cols), order='C')
             self.dense_mat_flat = self.dense_mat.ravel(order='C')
             self.sp_mat = None
-        
+
         self.c_success_scaling = c_int(0)
         self.scaling_values = None
         self.p_scaling = None
@@ -93,7 +93,7 @@ class ModelMatrixBuffer:
         """Create internal buffer for the scaling values."""
         if not hasattr(self.dll, "setScalingValuesOfModelRelatedMatrix"):
             raise MatrixError(
-                "set_matrix_scaling() needs a freedyn.dll that exports setScalingValuesOfModelRelatedMatrix"
+                "create_internal_scaling_values() needs a freedyn.dll that exports setScalingValuesOfModelRelatedMatrix"
             )
 
         self.scaling_values = np.array(scaling_values, dtype=np.float64, copy=True).ravel()
@@ -104,11 +104,11 @@ class ModelMatrixBuffer:
         """Change the scaling values of the current matrix index (pattern stays the same).
            Vector scaling_values must be initialized by create_internal_scaling_values()
            Change the scaling values by its index
-           
+
            Args:
                idx_change: Numpy array containing the indices to be changed
                value_changes: Numpy array containing the values for each index
-       """
+        """
 
         try:
             self.scaling_values[idx_change] = value_changes
