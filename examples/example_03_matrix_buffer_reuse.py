@@ -112,8 +112,8 @@ def main(argv=None):
                 trace_dense = float(np.trace(dense_buffer.dense_mat))
 
                 print(f"{i}, {trace_sparse:.6e}, {trace_dense:.6e}")
-                
-            
+
+
             # Demo of changing the scales in the matrix buffer
             temp_dense_mat = dense_buffer.dense_mat.copy()
             scales = np.array([1.0, 1.0], dtype=np.float64)
@@ -125,8 +125,10 @@ def main(argv=None):
             dense_buffer.update_from_dll()
             dense_buffer.apply_to_cached_matrix()
             if np.sum(abs(temp_dense_mat + dense_buffer.dense_mat)) == 0.0:
-                print("Scaling successful: Matrix + (-Matrix) == 0 ✓")    
-            
+                print("Scaling successful: Matrix + (-Matrix) == 0 ✓")
+            else:
+                print("Scaling failed! Matrix + (-Matrix) == 0 x")
+
 
     except fd.exceptions.FreeDynError as exc:
         print(f"ERROR: {exc}")
