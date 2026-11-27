@@ -10,6 +10,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 
 from . import _core
+from .exceptions import MatrixError
 from ._ctypes_utils import as_ptr
 
 
@@ -35,6 +36,10 @@ class ModelMatrixBuffer:
         "dense_mat",
         "sp_mat",
         "c_idx_mat",
+        "scaling_values",
+        "p_scaling",
+        "c_num_scaling_values",
+        "c_success_scaling",
     ]
 
     def __init__(self, matrix_index: int, sparse: bool):
@@ -74,15 +79,56 @@ class ModelMatrixBuffer:
             self.dense_mat_flat = self.dense_mat.ravel(order='C')
             self.sp_mat = None
 
-    def set_index(self, new_idx: int) -> None:
-        """Switch to another existing matrix index with the same structure."""
-        self.c_idx_mat.value = new_idx
+        self.c_success_scaling = c_int(0)
+        self.scaling_values = None
+        self.p_scaling = None
+        self.c_num_scaling_values = None
 
     def set_scaling(self, scaling_values) -> None:
         """Change the scaling values of the current matrix index (pattern stays the same)."""
         from .analysis import set_matrix_scaling
-
         set_matrix_scaling(self.c_idx_mat.value, scaling_values)
+
+    def create_internal_scaling_values(self, scaling_values) -> None:
+        """Create internal buffer for the scaling values."""
+        if not hasattr(self.dll, "setScalingValuesOfModelRelatedMatrix"):
+            raise MatrixError(
+                "create_internal_scaling_values() needs a freedyn.dll that exports setScalingValuesOfModelRelatedMatrix"
+            )
+
+        self.scaling_values = np.array(scaling_values, dtype=np.float64, copy=True).ravel()
+        self.c_num_scaling_values = c_int(self.scaling_values.size)
+        self.p_scaling = as_ptr(self.scaling_values, c_double)
+
+    def set_scaling_from_internal_values(self, idx_change: np.ndarray, value_changes: np.ndarray) -> None:
+        """Change the scaling values of the current matrix index (pattern stays the same).
+           Vector scaling_values must be initialized by create_internal_scaling_values()
+           Change the scaling values by its index
+
+           Args:
+               idx_change: Numpy array containing the indices to be changed
+               value_changes: Numpy array containing the values for each index
+        """
+
+        try:
+            self.scaling_values[idx_change] = value_changes
+        except TypeError as exc:
+            if self.scaling_values is None:
+                raise MatrixError(
+                    "Internal scaling values are not initialized. Call create_internal_scaling_values()"
+                ) from exc
+            raise
+
+        self.dll.setScalingValuesOfModelRelatedMatrix(
+            byref(self.c_idx_mat), byref(self.c_num_scaling_values),
+            self.p_scaling, byref(self.c_success_scaling)
+        )
+
+        if self.c_success_scaling.value <= 0:
+            raise MatrixError(
+                f"Failed to set {self.c_num_scaling_values.value} scaling value(s) of model matrix {self.c_idx_mat.value} "
+                "(invalid index or number of values differs from create_matrix())"
+            )
 
     def update_from_dll(self) -> None:
         """Refresh nonzero values from DLL for current matrix index."""
